@@ -1,0 +1,21 @@
+version: "2"
+run:
+  timeout: 5m
+linters:
+  enable:
+  - govet
+  - errcheck
+  - ineffassign
+  - staticcheck
+  - unused
+  - asciicheck
+  - bidichk
+  - bodyclose
+  - canonicalheader
+  - dupl
+  settings:
+    dupl:
+      threshold: 200
+formatters:
+  enable:
+    - gofmt
