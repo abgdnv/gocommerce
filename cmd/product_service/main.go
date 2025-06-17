@@ -19,22 +19,22 @@ import (
 func main() {
 	inMemoryStore := store.NewInMemoryStore()
 	// Generate some sample products
-	_, _ = inMemoryStore.CreateProduct("Sample 1", 1000, 10)
-	_, _ = inMemoryStore.CreateProduct("Sample 2", 2000, 20)
-	_, _ = inMemoryStore.CreateProduct("Sample 3", 3000, 30)
-	_, _ = inMemoryStore.CreateProduct("Sample 4", 4000, 40)
-	_, _ = inMemoryStore.CreateProduct("Sample 5", 5000, 50)
+	_, _ = inMemoryStore.Create("Sample 1", 1000, 10)
+	_, _ = inMemoryStore.Create("Sample 2", 2000, 20)
+	_, _ = inMemoryStore.Create("Sample 3", 3000, 30)
+	_, _ = inMemoryStore.Create("Sample 4", 4000, 40)
+	_, _ = inMemoryStore.Create("Sample 5", 5000, 50)
 
 	pService := service.NewService(inMemoryStore)
 
 	pApi := handler.NewAPI(pService)
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /api/v1/products/{id}", pApi.ProductsGetById)
-	mux.HandleFunc("GET /api/v1/products", pApi.ProductsGet)
-	mux.HandleFunc("POST /api/v1/products", pApi.ProductsPost)
-	mux.HandleFunc("DELETE /api/v1/products/{id}", pApi.ProductDeleteById)
-	mux.HandleFunc("/healthz", pApi.HealthCheckHandler)
+	mux.HandleFunc("GET /api/v1/products/{id}", pApi.FindByID)
+	mux.HandleFunc("GET /api/v1/products", pApi.FindAll)
+	mux.HandleFunc("POST /api/v1/products", pApi.Create)
+	mux.HandleFunc("DELETE /api/v1/products/{id}", pApi.DeleteByID)
+	mux.HandleFunc("/healthz", pApi.HealthCheck)
 
 	server := &http.Server{
 		Addr:    ":8080",

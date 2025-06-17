@@ -7,15 +7,15 @@ import (
 	"github.com/abgdnv/gocommerce/internal/product/errors"
 )
 
-// inMemory implements Store using an in-memory map.
+// inMemory implements ProductStore using an in-memory map.
 type inMemory struct {
 	mu       sync.RWMutex
 	products map[string]Product
 	nextID   int
 }
 
-// NewInMemoryStore creates a new instance of Store
-func NewInMemoryStore() Store {
+// NewInMemoryStore creates a new instance of ProductStore
+func NewInMemoryStore() ProductStore {
 	return &inMemory{
 		products: make(map[string]Product),
 		nextID:   1,
@@ -28,17 +28,17 @@ type Product struct {
 	Name  string
 	Price int64 // Price in cents
 	Stock int32
-	/*
-		Description string
-		sku         string // SKU (Stock Keeping Unit)
-		imageURL    []string // Image URLs
-		categories  []string
-		active      bool
+	/*  TODO:
+	Description string
+	sku         string // SKU (Stock Keeping Unit)
+	imageURL    []string // Image URLs
+	categories  []string
+	active      bool
 	*/
 }
 
-// GetProductByID retrieves a product by its ID.
-func (s *inMemory) GetProductByID(id string) (*Product, error) {
+// FindByID retrieves a product by its ID.
+func (s *inMemory) FindByID(id string) (*Product, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -49,8 +49,8 @@ func (s *inMemory) GetProductByID(id string) (*Product, error) {
 	return &t, nil
 }
 
-// GetProducts retrieves all products.
-func (s *inMemory) GetProducts() ([]Product, error) {
+// FindAll retrieves all products.
+func (s *inMemory) FindAll() (*[]Product, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -58,11 +58,11 @@ func (s *inMemory) GetProducts() ([]Product, error) {
 	for _, t := range s.products {
 		list = append(list, t)
 	}
-	return list, nil
+	return &list, nil
 }
 
-// CreateProduct creates a new product and returns it.
-func (s *inMemory) CreateProduct(name string, price int64, stock int32) (Product, error) {
+// Create creates a new product and returns it.
+func (s *inMemory) Create(name string, price int64, stock int32) (*Product, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -75,11 +75,11 @@ func (s *inMemory) CreateProduct(name string, price int64, stock int32) (Product
 	s.nextID++
 	s.products[product.ID] = product
 
-	return product, nil
+	return &product, nil
 }
 
-// DeleteProductByID deletes a product by its ID.
-func (s *inMemory) DeleteProductByID(id string) error {
+// DeleteByID deletes a product by its ID.
+func (s *inMemory) DeleteByID(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

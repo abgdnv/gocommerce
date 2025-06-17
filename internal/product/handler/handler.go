@@ -13,13 +13,14 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-// ProductAPI defines the methods for handling product-related HTTP requests.
+// ProductAPI defines HTTP handlers for product-related endpoints.
 type ProductAPI interface {
-	ProductsGetById(w http.ResponseWriter, r *http.Request)
-	ProductsGet(w http.ResponseWriter, r *http.Request)
-	ProductsPost(w http.ResponseWriter, r *http.Request)
-	ProductDeleteById(w http.ResponseWriter, r *http.Request)
-	HealthCheckHandler(w http.ResponseWriter, r *http.Request)
+	FindByID(w http.ResponseWriter, r *http.Request)
+	FindAll(w http.ResponseWriter, r *http.Request)
+	Create(w http.ResponseWriter, r *http.Request)
+	DeleteByID(w http.ResponseWriter, r *http.Request)
+
+	HealthCheck(w http.ResponseWriter, r *http.Request)
 }
 
 type api struct {
@@ -35,10 +36,10 @@ func NewAPI(service service.ProductService) ProductAPI {
 	}
 }
 
-// ProductsGetById retrieves a product by its ID.
-func (a *api) ProductsGetById(w http.ResponseWriter, r *http.Request) {
+// FindByID retrieves a product by its ID.
+func (a *api) FindByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	t, err := a.service.GetProductByID(id)
+	t, err := a.service.FindByID(id)
 	if err != nil {
 		if errors.Is(err, producterrors.ErrProductNotFound) {
 			respondError(w, http.StatusNotFound, fmt.Sprintf("Product with ID %s not found", id))
@@ -52,9 +53,9 @@ func (a *api) ProductsGetById(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// ProductsGet retrieves a list of all products.
-func (a *api) ProductsGet(w http.ResponseWriter, r *http.Request) {
-	list, err := a.service.GetProducts()
+// FindAll retrieves a list of all products.
+func (a *api) FindAll(w http.ResponseWriter, r *http.Request) {
+	list, err := a.service.FindAll()
 	if err != nil {
 		log.Printf("Error fetching products: %v", err)
 		respondError(w, http.StatusInternalServerError, "Failed to fetch products")
@@ -63,9 +64,9 @@ func (a *api) ProductsGet(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, list)
 }
 
-// ProductsPost handles the creation of a new product.
-func (a *api) ProductsPost(w http.ResponseWriter, r *http.Request) {
-	var productDTO service.ProductDTO
+// Create handles the creation of a new product.
+func (a *api) Create(w http.ResponseWriter, r *http.Request) {
+	var productDTO service.ProductDto
 	if err := json.NewDecoder(r.Body).Decode(&productDTO); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -76,7 +77,7 @@ func (a *api) ProductsPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newProduct, err := a.service.CreateProduct(productDTO)
+	newProduct, err := a.service.Create(productDTO)
 	if err != nil {
 		log.Printf("Error creating product: %v", err)
 		respondError(w, http.StatusInternalServerError, "Failed to create product")
@@ -86,10 +87,10 @@ func (a *api) ProductsPost(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusCreated, newProduct)
 }
 
-// ProductDeleteById deletes a product by its ID.
-func (a *api) ProductDeleteById(w http.ResponseWriter, r *http.Request) {
+// DeleteByID deletes a product by its ID.
+func (a *api) DeleteByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	err := a.service.DeleteProductByID(id)
+	err := a.service.DeleteByID(id)
 	if err != nil {
 		if errors.Is(err, producterrors.ErrProductNotFound) {
 			respondError(w, http.StatusNotFound, fmt.Sprintf("Product with ID %s not found", id))
@@ -103,8 +104,8 @@ func (a *api) ProductDeleteById(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// HealthCheckHandler is a simple health check endpoint.
-func (a *api) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
+// HealthCheck is a simple health check endpoint.
+func (a *api) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
