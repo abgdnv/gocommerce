@@ -61,7 +61,7 @@ func (a *api) FindAll(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusInternalServerError, "Failed to fetch products")
 		return
 	}
-	respondJSON(w, http.StatusOK, list)
+	respondJSON(w, http.StatusOK, *list)
 }
 
 // Create handles the creation of a new product.
@@ -73,7 +73,19 @@ func (a *api) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := a.validate.Struct(productDTO); err != nil {
-		respondError(w, http.StatusBadRequest, "Validation failed: "+err.Error())
+		var validationErrors validator.ValidationErrors
+		if errors.As(err, &validationErrors) {
+			// If the error is a validation error, we can extract field-specific errors.
+			errorResponse := make(map[string]string)
+			for _, fieldErr := range validationErrors {
+				// fieldErr.Tag() returns "required", "max", etc.
+				errorResponse[fieldErr.Field()] = "failed on rule: " + fieldErr.Tag()
+			}
+			respondJSON(w, http.StatusBadRequest, map[string]interface{}{"validation_errors": errorResponse})
+			return
+		}
+		// If it's not a validation error, we can return a generic error.
+		respondError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 

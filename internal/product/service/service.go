@@ -17,7 +17,7 @@ type ProductService interface {
 
 	// FindAll returns all available products.
 	// Returns an empty slice if no products exist.
-	FindAll() ([]ProductDto, error)
+	FindAll() (*[]ProductDto, error)
 
 	// Create adds a new product to the system.
 	// Returns error if the product cannot be created.
@@ -60,7 +60,7 @@ func (s *service) FindByID(id string) (*ProductDto, error) {
 }
 
 // FindAll retrieves a list of all products and returns them as ProductDTOs.
-func (s *service) FindAll() ([]ProductDto, error) {
+func (s *service) FindAll() (*[]ProductDto, error) {
 	products, err := s.repository.FindAll()
 	if err != nil {
 		log.Printf("Error fetching products: %v", err)
@@ -72,7 +72,7 @@ func (s *service) FindAll() ([]ProductDto, error) {
 		productDTOs[i] = *toDto(&item)
 	}
 
-	return productDTOs, nil
+	return &productDTOs, nil
 }
 
 // Create creates a new product and returns it as a ProductDto.
