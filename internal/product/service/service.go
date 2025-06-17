@@ -45,8 +45,10 @@ func (s *service) GetProductByID(id string) (*ProductDTO, error) {
 	}
 
 	return &ProductDTO{
-		ID:   product.ID,
-		Name: product.Name,
+		ID:    product.ID,
+		Name:  product.Name,
+		Price: product.Price,
+		Stock: product.Stock,
 	}, nil
 }
 
@@ -61,8 +63,10 @@ func (s *service) GetProducts() ([]ProductDTO, error) {
 
 	for i, item := range products {
 		productDTOs[i] = ProductDTO{
-			ID:   item.ID,
-			Name: item.Name,
+			ID:    item.ID,
+			Name:  item.Name,
+			Price: item.Price,
+			Stock: item.Stock,
 		}
 	}
 
@@ -78,8 +82,10 @@ func (s *service) CreateProduct(product ProductDTO) (*ProductDTO, error) {
 	}
 
 	return &ProductDTO{
-		ID:   p.ID,
-		Name: p.Name,
+		ID:    p.ID,
+		Name:  p.Name,
+		Price: p.Price,
+		Stock: p.Stock,
 	}, nil
 }
 
