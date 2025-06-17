@@ -1,3 +1,4 @@
+// Package store provides an interface for product storage operations.
 package store
 
 // Store is an interface for product storage operations.

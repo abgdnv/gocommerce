@@ -1,3 +1,4 @@
+// Package service provides the implementation of product-related business logic.
 package service
 
 import (
