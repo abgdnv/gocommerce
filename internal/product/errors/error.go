@@ -1,5 +1,5 @@
-// Package errorsProduct provides custom error types for product-related operations.
-package errorsProduct
+// Package errors provides custom error types for product-related operations.
+package errors
 
 import "errors"
 

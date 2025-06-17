@@ -1,21 +1,22 @@
-package repository
+package store
 
 import (
 	"fmt"
 	"sync"
 
-	"github.com/abgdnv/gocommerce/internal/product/errorsProduct"
+	"github.com/abgdnv/gocommerce/internal/product/errors"
 )
 
-// InMemoryProductRepository implements ProductRepositoryContract using an in-memory map.
-type InMemoryProductRepository struct {
+// inMemory implements Store using an in-memory map.
+type inMemory struct {
 	mu       sync.RWMutex
 	products map[string]Product
 	nextID   int
 }
 
-func NewInMemoryProductRepository() *InMemoryProductRepository {
-	return &InMemoryProductRepository{
+// NewInMemoryStore creates a new instance of Store
+func NewInMemoryStore() Store {
+	return &inMemory{
 		products: make(map[string]Product),
 		nextID:   1,
 	}
@@ -36,29 +37,20 @@ type Product struct {
 	*/
 }
 
-func (s *InMemoryProductRepository) GetProductByID(id string) (*Product, error) {
+// GetProductByID retrieves a product by its ID.
+func (s *inMemory) GetProductByID(id string) (*Product, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	t, ok := s.products[id]
 	if !ok {
-		return nil, errorsProduct.ErrProductNotFound
+		return nil, errors.ErrProductNotFound
 	}
 	return &t, nil
 }
 
-func (s *InMemoryProductRepository) DeleteProductByID(id string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, exists := s.products[id]; !exists {
-		return errorsProduct.ErrProductNotFound
-	}
-	delete(s.products, id)
-	return nil
-}
-
-func (s *InMemoryProductRepository) GetProducts() ([]Product, error) {
+// GetProducts retrieves all products.
+func (s *inMemory) GetProducts() ([]Product, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -69,7 +61,8 @@ func (s *InMemoryProductRepository) GetProducts() ([]Product, error) {
 	return list, nil
 }
 
-func (s *InMemoryProductRepository) CreateProduct(name string, price int64, stock int32) (Product, error) {
+// CreateProduct creates a new product and returns it.
+func (s *inMemory) CreateProduct(name string, price int64, stock int32) (Product, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -83,4 +76,16 @@ func (s *InMemoryProductRepository) CreateProduct(name string, price int64, stoc
 	s.products[product.ID] = product
 
 	return product, nil
+}
+
+// DeleteProductByID deletes a product by its ID.
+func (s *inMemory) DeleteProductByID(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, exists := s.products[id]; !exists {
+		return errors.ErrProductNotFound
+	}
+	delete(s.products, id)
+	return nil
 }

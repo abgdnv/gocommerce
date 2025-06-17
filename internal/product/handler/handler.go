@@ -8,24 +8,63 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/abgdnv/gocommerce/internal/product/errorsProduct"
+	producterrors "github.com/abgdnv/gocommerce/internal/product/errors"
 	"github.com/abgdnv/gocommerce/internal/product/service"
 	"github.com/go-playground/validator/v10"
 )
 
-type API struct {
-	service  service.ProductServiceContract
+// ProductAPI defines the methods for handling product-related HTTP requests.
+type ProductAPI interface {
+	ProductsGetById(w http.ResponseWriter, r *http.Request)
+	ProductsGet(w http.ResponseWriter, r *http.Request)
+	ProductsPost(w http.ResponseWriter, r *http.Request)
+	ProductDeleteById(w http.ResponseWriter, r *http.Request)
+	HealthCheckHandler(w http.ResponseWriter, r *http.Request)
+}
+
+type api struct {
+	service  service.ProductService
 	validate *validator.Validate
 }
 
-func NewAPI(service service.ProductServiceContract) *API {
-	return &API{
+// NewAPI creates a new instance of ProductAPI with the provided service.
+func NewAPI(service service.ProductService) ProductAPI {
+	return &api{
 		service:  service,
 		validate: validator.New(),
 	}
 }
 
-func (a *API) ProductsPost(w http.ResponseWriter, r *http.Request) {
+// ProductsGetById retrieves a product by its ID.
+func (a *api) ProductsGetById(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	t, err := a.service.GetProductByID(id)
+	if err != nil {
+		if errors.Is(err, producterrors.ErrProductNotFound) {
+			respondError(w, http.StatusNotFound, fmt.Sprintf("Product with ID %s not found", id))
+			return
+		}
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve product with ID %s", id))
+		return
+	}
+	log.Printf("Retrieved Product ID: %s, Name: %s", t.ID, t.Name)
+	respondJSON(w, http.StatusOK, t)
+
+}
+
+// ProductsGet retrieves a list of all products.
+func (a *api) ProductsGet(w http.ResponseWriter, r *http.Request) {
+	list, err := a.service.GetProducts()
+	if err != nil {
+		log.Printf("Error fetching products: %v", err)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch products")
+		return
+	}
+	respondJSON(w, http.StatusOK, list)
+}
+
+// ProductsPost handles the creation of a new product.
+func (a *api) ProductsPost(w http.ResponseWriter, r *http.Request) {
 	var productDTO service.ProductDTO
 	if err := json.NewDecoder(r.Body).Decode(&productDTO); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid request body")
@@ -47,37 +86,12 @@ func (a *API) ProductsPost(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusCreated, newProduct)
 }
 
-func (a *API) ProductsGet(w http.ResponseWriter, r *http.Request) {
-	list, err := a.service.GetProducts()
-	if err != nil {
-		log.Printf("Error fetching products: %v", err)
-		respondError(w, http.StatusInternalServerError, "Failed to fetch products")
-		return
-	}
-	respondJSON(w, http.StatusOK, list)
-}
-
-func (a *API) ProductsGetById(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	t, err := a.service.GetProductByID(id)
-	if err != nil {
-		if errors.Is(err, errorsProduct.ErrProductNotFound) {
-			respondError(w, http.StatusNotFound, fmt.Sprintf("Product with ID %s not found", id))
-			return
-		}
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve product with ID %s", id))
-		return
-	}
-	log.Printf("Retrieved Product ID: %s, Name: %s", t.ID, t.Name)
-	respondJSON(w, http.StatusOK, t)
-
-}
-
-func (a *API) ProductDeleteById(w http.ResponseWriter, r *http.Request) {
+// ProductDeleteById deletes a product by its ID.
+func (a *api) ProductDeleteById(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	err := a.service.DeleteProductByID(id)
 	if err != nil {
-		if errors.Is(err, errorsProduct.ErrProductNotFound) {
+		if errors.Is(err, producterrors.ErrProductNotFound) {
 			respondError(w, http.StatusNotFound, fmt.Sprintf("Product with ID %s not found", id))
 			return
 		}
@@ -90,7 +104,7 @@ func (a *API) ProductDeleteById(w http.ResponseWriter, r *http.Request) {
 }
 
 // HealthCheckHandler is a simple health check endpoint.
-func (a *API) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
+func (a *api) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 

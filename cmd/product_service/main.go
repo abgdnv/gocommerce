@@ -12,31 +12,29 @@ import (
 	"time"
 
 	"github.com/abgdnv/gocommerce/internal/product/handler"
-	"github.com/abgdnv/gocommerce/internal/product/repository"
 	"github.com/abgdnv/gocommerce/internal/product/service"
+	"github.com/abgdnv/gocommerce/internal/product/store"
 )
 
 func main() {
-	repo := repository.NewInMemoryProductRepository()
+	inMemoryStore := store.NewInMemoryStore()
 	// Generate some sample products
-	_, _ = repo.CreateProduct("Sample 1", 1000, 10)
-	_, _ = repo.CreateProduct("Sample 2", 2000, 20)
-	_, _ = repo.CreateProduct("Sample 3", 3000, 30)
-	_, _ = repo.CreateProduct("Sample 4", 4000, 40)
-	_, _ = repo.CreateProduct("Sample 5", 5000, 50)
+	_, _ = inMemoryStore.CreateProduct("Sample 1", 1000, 10)
+	_, _ = inMemoryStore.CreateProduct("Sample 2", 2000, 20)
+	_, _ = inMemoryStore.CreateProduct("Sample 3", 3000, 30)
+	_, _ = inMemoryStore.CreateProduct("Sample 4", 4000, 40)
+	_, _ = inMemoryStore.CreateProduct("Sample 5", 5000, 50)
 
-	productService := service.NewProductService(repo)
+	pService := service.NewService(inMemoryStore)
 
-	api := handler.NewAPI(productService)
+	pApi := handler.NewAPI(pService)
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /api/v1/products", api.ProductsGet)
-	mux.HandleFunc("POST /api/v1/products", api.ProductsPost)
-
-	mux.HandleFunc("GET /api/v1/products/{id}", api.ProductsGetById)
-	mux.HandleFunc("DELETE /api/v1/products/{id}", api.ProductDeleteById)
-
-	mux.HandleFunc("/healthz", api.HealthCheckHandler)
+	mux.HandleFunc("GET /api/v1/products/{id}", pApi.ProductsGetById)
+	mux.HandleFunc("GET /api/v1/products", pApi.ProductsGet)
+	mux.HandleFunc("POST /api/v1/products", pApi.ProductsPost)
+	mux.HandleFunc("DELETE /api/v1/products/{id}", pApi.ProductDeleteById)
+	mux.HandleFunc("/healthz", pApi.HealthCheckHandler)
 
 	server := &http.Server{
 		Addr:    ":8080",

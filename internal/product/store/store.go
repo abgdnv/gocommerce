@@ -1,6 +1,7 @@
-package repository
+package store
 
-type ProductRepositoryContract interface {
+// Store is an interface for product storage operations.
+type Store interface {
 	GetProductByID(id string) (*Product, error)
 	GetProducts() ([]Product, error)
 	CreateProduct(name string, price int64, stock int32) (Product, error)
