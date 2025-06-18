@@ -14,6 +14,8 @@ import (
 	"github.com/abgdnv/gocommerce/internal/product/handler"
 	"github.com/abgdnv/gocommerce/internal/product/service"
 	"github.com/abgdnv/gocommerce/internal/product/store"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 func main() {
@@ -28,13 +30,24 @@ func main() {
 	pService := service.NewService(inMemoryStore)
 
 	pApi := handler.NewAPI(pService)
-	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /api/v1/products/{id}", pApi.FindByID)
-	mux.HandleFunc("GET /api/v1/products", pApi.FindAll)
-	mux.HandleFunc("POST /api/v1/products", pApi.Create)
-	mux.HandleFunc("DELETE /api/v1/products/{id}", pApi.DeleteByID)
-	mux.HandleFunc("/healthz", pApi.HealthCheck)
+	mux := chi.NewRouter()
+	mux.Use(middleware.Recoverer)
+	mux.Use(middleware.RealIP)
+	mux.Use(middleware.Logger)
+	mux.Use(middleware.Timeout(30 * time.Second))
+
+	mux.Route("/api/v1/products", func(r chi.Router) {
+		r.Get("/", pApi.FindAll)
+		r.Post("/", pApi.Create)
+
+		r.Route("/{id}", func(r chi.Router) {
+			r.Get("/", pApi.FindByID)
+			r.Delete("/", pApi.DeleteByID)
+		})
+	})
+
+	mux.Get("/healthz", pApi.HealthCheck)
 
 	server := &http.Server{
 		Addr:    ":8080",
