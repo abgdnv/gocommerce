@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/abgdnv/gocommerce/internal/config"
 	"github.com/abgdnv/gocommerce/internal/product/handler"
 	"github.com/abgdnv/gocommerce/internal/product/service"
 	"github.com/abgdnv/gocommerce/internal/product/store"
@@ -19,6 +20,13 @@ import (
 )
 
 func main() {
+	// Load configuration
+	cfg, cfgErr := config.Load()
+	if cfgErr != nil {
+		log.Fatalf("Error loading configuration: %v", cfgErr)
+	}
+	log.Printf("Configuration loaded: %v", cfg)
+
 	inMemoryStore := store.NewInMemoryStore()
 	// Generate some sample products
 	_, _ = inMemoryStore.Create("Sample 1", 1000, 10)
@@ -48,10 +56,14 @@ func main() {
 	})
 
 	mux.Get("/healthz", pApi.HealthCheck)
-
 	server := &http.Server{
-		Addr:    ":8080",
-		Handler: mux,
+		Addr:              fmt.Sprintf(":%d", cfg.HTTPServer.Port),
+		Handler:           mux,
+		ReadTimeout:       cfg.HTTPServer.Timeout.Read,
+		WriteTimeout:      cfg.HTTPServer.Timeout.Write,
+		IdleTimeout:       cfg.HTTPServer.Timeout.Idle,
+		ReadHeaderTimeout: cfg.HTTPServer.Timeout.ReadHeader,
+		MaxHeaderBytes:    cfg.HTTPServer.MaxHeaderBytes,
 	}
 
 	// Graceful shutdown handling
@@ -69,7 +81,7 @@ func main() {
 		close(idleConnectionsClosed)
 	}()
 
-	log.Print("Starting server on :8080")
+	log.Printf("Starting server on %s", server.Addr)
 
 	err := server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
