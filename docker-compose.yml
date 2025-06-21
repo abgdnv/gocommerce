@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:17.5-alpine
+    restart: always
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+
+volumes:
+  postgres_data:
+    name: postgres_data
+
+networks:
+  ecommerce-network:
+    name: ecommerce-network
