@@ -60,6 +60,8 @@ func main() {
 		r.Route("/{id}", func(r chi.Router) {
 			r.Get("/", pApi.FindByID)
 			r.Delete("/", pApi.DeleteByID)
+			r.Put("/", pApi.Update)
+			r.Put("/stock", pApi.UpdateStock)
 		})
 	})
 
