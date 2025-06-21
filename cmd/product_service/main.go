@@ -51,7 +51,7 @@ func main() {
 	mux.Use(middleware.Recoverer)
 	mux.Use(middleware.RealIP)
 	mux.Use(middleware.Logger)
-	mux.Use(middleware.Timeout(30 * time.Second))
+	mux.Use(middleware.Timeout(cfg.HTTPServer.Timeout.Read + 2*time.Second))
 
 	mux.Route("/api/v1/products", func(r chi.Router) {
 		r.Get("/", pApi.FindAll)
