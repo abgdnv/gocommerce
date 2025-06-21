@@ -2,10 +2,13 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"log"
 
 	"github.com/abgdnv/gocommerce/internal/product/store"
+	"github.com/abgdnv/gocommerce/internal/product/store/db"
+	"github.com/google/uuid"
 )
 
 // ProductService defines the methods for managing products.
@@ -13,19 +16,27 @@ import (
 type ProductService interface {
 	// FindByID retrieves a single product by its unique identifier.
 	// Returns ErrProductNotFound if no product exists with the given ID.
-	FindByID(id string) (*ProductDto, error)
+	FindByID(ctx context.Context, id uuid.UUID) (*ProductDto, error)
 
 	// FindAll returns all available products.
 	// Returns an empty slice if no products exist.
-	FindAll() (*[]ProductDto, error)
+	FindAll(ctx context.Context, offset, limit int32) (*[]ProductDto, error)
 
 	// Create adds a new product to the system.
 	// Returns error if the product cannot be created.
-	Create(product ProductDto) (*ProductDto, error)
+	Create(ctx context.Context, product ProductCreateDto) (*ProductDto, error)
+
+	// Update modifies an existing product's details.
+	// Returns ErrProductNotFound if no product exists with the given ID and version.
+	Update(ctx context.Context, product ProductDto) (*ProductDto, error)
+
+	// UpdateStock adjusts the stock quantity of a product.
+	// Returns ErrProductNotFound if no product exists with the given ID and version.
+	UpdateStock(ctx context.Context, id uuid.UUID, stock int32, version int32) (*ProductDto, error)
 
 	// DeleteByID removes a product by its ID.
 	// Returns ErrProductNotFound if no product exists with the given ID.
-	DeleteByID(id string) error
+	DeleteByID(ctx context.Context, id uuid.UUID, version int32) error
 }
 
 // service implements ProductService and provides methods to manage products.
@@ -40,17 +51,33 @@ func NewService(repo store.ProductStore) ProductService {
 	}
 }
 
+// ProductCreateDto represents the data transfer object for creating a new product.
+type ProductCreateDto struct {
+	Name  string `json:"name"    validate:"required,max=100"`
+	Price int64  `json:"price"   validate:"required,min=0"`
+	Stock int32  `json:"stock"   validate:"required,min=0"`
+}
+
 // ProductDto represents the data transfer object for a product.
+// Version is read-only and used for optimistic concurrency control.
 type ProductDto struct {
-	ID    string `json:"id"`
-	Name  string `json:"name" validate:"required,max=100"`
-	Price int64  `json:"price" validate:"required,min=0"`
-	Stock int32  `json:"stock" validate:"required,min=0"`
+	ID      string `json:"id"`
+	Name    string `json:"name"    validate:"required,max=100"`
+	Price   int64  `json:"price"   validate:"required,min=0"`
+	Stock   int32  `json:"stock"   validate:"required,min=0"`
+	Version int32  `json:"version" validate:"required,min=1"`
+}
+
+// StockUpdateDto represents the data transfer object for updating product stock.
+type StockUpdateDto struct {
+	Stock   int32 `json:"stock"   validate:"required,min=0"`
+	Version int32 `json:"version" validate:"required,min=1"`
 }
 
 // FindByID retrieves a product by its ID and returns it as a ProductDto.
-func (s *service) FindByID(id string) (*ProductDto, error) {
-	product, err := s.repository.FindByID(id)
+// Returns ErrProductNotFound if no product exists with the given ID.
+func (s *service) FindByID(ctx context.Context, id uuid.UUID) (*ProductDto, error) {
+	product, err := s.repository.FindByID(ctx, id)
 	if err != nil {
 		log.Printf("Error fetching product by ID %s: %v", id, err)
 		return nil, fmt.Errorf("failed to fetch product by ID %s: %w", id, err)
@@ -60,8 +87,9 @@ func (s *service) FindByID(id string) (*ProductDto, error) {
 }
 
 // FindAll retrieves a list of all products and returns them as ProductDTOs.
-func (s *service) FindAll() (*[]ProductDto, error) {
-	products, err := s.repository.FindAll()
+// Returns an empty slice if no products exist or error if the retrieval fails.
+func (s *service) FindAll(ctx context.Context, offset, limit int32) (*[]ProductDto, error) {
+	products, err := s.repository.FindAll(ctx, offset, limit)
 	if err != nil {
 		log.Printf("Error fetching products: %v", err)
 		return nil, fmt.Errorf("failed to fetch products: %w", err)
@@ -76,8 +104,9 @@ func (s *service) FindAll() (*[]ProductDto, error) {
 }
 
 // Create creates a new product and returns it as a ProductDto.
-func (s *service) Create(product ProductDto) (*ProductDto, error) {
-	p, err := s.repository.Create(product.Name, product.Price, product.Stock)
+// Returns an error if the product cannot be created.
+func (s *service) Create(ctx context.Context, product ProductCreateDto) (*ProductDto, error) {
+	p, err := s.repository.Create(ctx, product.Name, product.Price, product.Stock)
 	if err != nil {
 		log.Printf("Error creating product: %v", err)
 		return nil, fmt.Errorf("failed to create product: %w", err)
@@ -86,17 +115,49 @@ func (s *service) Create(product ProductDto) (*ProductDto, error) {
 	return toDto(p), nil
 }
 
+// Update modifies an existing product's details and returns the updated product as a ProductDto.
+// Returns ErrProductNotFound if no product exists with the given ID and version.
+func (s *service) Update(ctx context.Context, product ProductDto) (*ProductDto, error) {
+	updated, err := s.repository.Update(
+		ctx,
+		uuid.MustParse(product.ID),
+		product.Name,
+		product.Price,
+		product.Stock,
+		product.Version)
+	if err != nil {
+		log.Printf("Error updating product with ID %s: %v", product.ID, err)
+		return nil, fmt.Errorf("failed to update product with ID %s: %w", product.ID, err)
+	}
+
+	return toDto(updated), nil
+}
+
+// UpdateStock adjusts the stock quantity of a product and returns the updated product as a ProductDto.
+// Returns ErrProductNotFound if no product exists with the given ID and version.
+func (s *service) UpdateStock(ctx context.Context, id uuid.UUID, stock int32, version int32) (*ProductDto, error) {
+	product, err := s.repository.UpdateStock(ctx, id, stock, version)
+	if err != nil {
+		log.Printf("Error updating stock for product with ID %s: %v", id, err)
+		return nil, fmt.Errorf("failed to update stock for product with ID %s: %w", id, err)
+	}
+
+	return toDto(product), nil
+}
+
 // DeleteByID deletes a product by its ID.
-func (s *service) DeleteByID(id string) error {
-	return s.repository.DeleteByID(id)
+// Returns ErrProductNotFound if no product exists with the given ID and version.
+func (s *service) DeleteByID(ctx context.Context, id uuid.UUID, version int32) error {
+	return s.repository.DeleteByID(ctx, id, version)
 }
 
 // toDto converts a store.Product to a ProductDto.
-func toDto(product *store.Product) *ProductDto {
+func toDto(product *db.Product) *ProductDto {
 	return &ProductDto{
-		ID:    product.ID,
-		Name:  product.Name,
-		Price: product.Price,
-		Stock: product.Stock,
+		ID:      product.ID.String(),
+		Name:    product.Name,
+		Price:   product.Price,
+		Stock:   product.StockQuantity,
+		Version: product.Version,
 	}
 }

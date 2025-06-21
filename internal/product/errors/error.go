@@ -4,4 +4,3 @@ package errors
 import "errors"
 
 var ErrProductNotFound = errors.New("product not found")
-var ErrCantCreateProduct = errors.New("can't create product")

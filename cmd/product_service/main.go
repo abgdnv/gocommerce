@@ -17,6 +17,7 @@ import (
 	"github.com/abgdnv/gocommerce/internal/product/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
@@ -27,15 +28,22 @@ func main() {
 	}
 	log.Printf("Configuration loaded: %v", cfg)
 
-	inMemoryStore := store.NewInMemoryStore()
-	// Generate some sample products
-	_, _ = inMemoryStore.Create("Sample 1", 1000, 10)
-	_, _ = inMemoryStore.Create("Sample 2", 2000, 20)
-	_, _ = inMemoryStore.Create("Sample 3", 3000, 30)
-	_, _ = inMemoryStore.Create("Sample 4", 4000, 40)
-	_, _ = inMemoryStore.Create("Sample 5", 5000, 50)
+	// Create context with timeout for database connection
+	poolCtx, poolCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer poolCancel()
 
-	pService := service.NewService(inMemoryStore)
+	dbPool, errPool := pgxpool.New(poolCtx, cfg.Database.URL)
+	if errPool != nil {
+		log.Fatalf("Unable to create connection pool: %v\n", errPool)
+	}
+	defer dbPool.Close()
+
+	if err := dbPool.Ping(poolCtx); err != nil {
+		log.Fatalf("Unable to ping database: %v\n", err)
+	}
+	log.Println("Successfully connected to the database!")
+
+	pService := service.NewService(store.NewPgStore(dbPool))
 
 	pApi := handler.NewAPI(pService)
 
