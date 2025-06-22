@@ -7,7 +7,7 @@ server:
     idle: 60s
     readHeader: 5s
 database:
-  url: "postgresql://user:password@localhost:5432/gocommerce111"
+  url: "postgresql://user:password@localhost:5432/gocommerce"
 log:
   level: info
 

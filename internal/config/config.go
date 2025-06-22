@@ -125,6 +125,9 @@ func validateConfig(cfg Config) error {
 	if cfg.HTTPServer.Timeout.Idle <= 0 {
 		return fmt.Errorf("invalid HTTP server idle timeout: %v", cfg.HTTPServer.Timeout.Idle)
 	}
+	if cfg.HTTPServer.Timeout.ReadHeader <= 0 {
+		return fmt.Errorf("invalid HTTP server read header timeout: %v", cfg.HTTPServer.Timeout.ReadHeader)
+	}
 	if cfg.Database.URL == "" {
 		return fmt.Errorf("database URL is not configured")
 	}
