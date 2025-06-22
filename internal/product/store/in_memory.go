@@ -57,6 +57,7 @@ func (s *inMemory) Create(_ context.Context, name string, price int64, stock int
 		Name:          name,
 		Price:         price,
 		StockQuantity: stock,
+		Version:       1,
 	}
 	s.products[product.ID] = product
 
