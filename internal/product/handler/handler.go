@@ -71,11 +71,11 @@ func (a *api) FindByID(w http.ResponseWriter, r *http.Request) {
 // FindAll retrieves a list of all products.
 func (a *api) FindAll(w http.ResponseWriter, r *http.Request) {
 	mLogger := loggerWithReqID(r, a)
-	limit, ok := parseUrlParam(r, w, mLogger, "limit")
+	limit, ok := parseValidate(r, w, mLogger, "limit", gt(0))
 	if !ok {
 		return
 	}
-	offset, ok := parseUrlParam(r, w, mLogger, "offset")
+	offset, ok := parseValidate(r, w, mLogger, "offset", gte(0))
 	if !ok {
 		return
 	}
@@ -228,7 +228,7 @@ func (a *api) DeleteByID(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	version, ok := parseUrlParam(r, w, mLogger, "version")
+	version, ok := parseValidate(r, w, mLogger, "version", gte(1))
 	if !ok {
 		return
 	}
@@ -286,14 +286,14 @@ func parseID(w http.ResponseWriter, r *http.Request, logger *slog.Logger) (uuid.
 	return id, true
 }
 
-func parseUrlParam(r *http.Request, w http.ResponseWriter, logger *slog.Logger, key string) (int32, bool) {
+func parseValidate(r *http.Request, w http.ResponseWriter, logger *slog.Logger, key string, pValidator ParamValidator) (int32, bool) {
 	value := r.URL.Query().Get(key)
 	if value == "" {
 		respondError(w, logger, http.StatusBadRequest, fmt.Sprintf("%s url parameter is required", key))
 		return 0, false // Return false if the parameter is not present
 	}
 	intValue, err := strconv.ParseInt(value, 10, 32)
-	if err != nil {
+	if err != nil || !pValidator(intValue) {
 		respondError(w, logger, http.StatusBadRequest, fmt.Sprintf("Invalid %s number: %s", key, value))
 		return 0, false
 	}
@@ -307,4 +307,27 @@ func loggerWithReqID(r *http.Request, a *api) *slog.Logger {
 		reqID = "unknown"
 	}
 	return a.logger.With("request_id", reqID)
+}
+
+// ParamValidator is a function type that validates a parameter.
+type ParamValidator func(valueToTest int64) bool
+
+func newComparisonValidator(valueInClosure int64, compareFn func(argValue, closedValue int64) bool) ParamValidator {
+	return func(argValue int64) bool {
+		return compareFn(argValue, valueInClosure)
+	}
+}
+
+// gte returns a ParamValidator that checks if the argument is greater than or equal to the value captured in the closure.
+func gte(valToCompareAgainst int64) ParamValidator {
+	return newComparisonValidator(valToCompareAgainst, func(argValue, closedValue int64) bool {
+		return argValue >= closedValue
+	})
+}
+
+// gt returns a ParamValidator that checks if the argument is greater than the value captured in the closure.
+func gt(valToCompareAgainst int64) ParamValidator {
+	return newComparisonValidator(valToCompareAgainst, func(argValue, closedValue int64) bool {
+		return argValue > closedValue
+	})
 }
