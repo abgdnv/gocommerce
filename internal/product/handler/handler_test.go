@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -105,7 +106,8 @@ func Test_ProductAPI_FindByID(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
-			api := NewAPI(&tc.mockService)
+			logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+			api := NewAPI(&tc.mockService, logger)
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/products/"+tc.productID, nil)
 			req.SetPathValue("id", tc.productID)
 			rr := httptest.NewRecorder()
@@ -198,7 +200,8 @@ func Test_ProductAPI_FindAll(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
-			api := NewAPI(&tc.mockService)
+			logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+			api := NewAPI(&tc.mockService, logger)
 
 			params := make([]string, 0, 2)
 			if !tc.noOffset {
@@ -281,7 +284,8 @@ func Test_ProductAPI_Create(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
-			api := NewAPI(&tc.mockService)
+			logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+			api := NewAPI(&tc.mockService, logger)
 			req := httptest.NewRequest(http.MethodPost, "/api/v1/products", nil)
 			req.Body = io.NopCloser(strings.NewReader(tc.requestBody))
 			req.Header.Set("Content-Type", "application/json")
@@ -365,7 +369,8 @@ func Test_ProductAPI_Update(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
-			api := NewAPI(&tc.mockService)
+			logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+			api := NewAPI(&tc.mockService, logger)
 			req := httptest.NewRequest(http.MethodPut, "/api/v1/products/"+tc.productID, nil)
 			req.Body = io.NopCloser(strings.NewReader(tc.requestBody))
 			req.Header.Set("Content-Type", "application/json")
@@ -453,7 +458,8 @@ func Test_ProductAPI_UpdateStock(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
-			api := NewAPI(&tc.mockService)
+			logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+			api := NewAPI(&tc.mockService, logger)
 			req := httptest.NewRequest(http.MethodPut, "/api/v1/products/"+tc.productID+"/stock", nil)
 			req.Body = io.NopCloser(strings.NewReader(tc.requestBody))
 			req.Header.Set("Content-Type", "application/json")
@@ -526,7 +532,8 @@ func Test_ProductAPI_DeleteByID(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
-			api := NewAPI(&tc.mockService)
+			logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+			api := NewAPI(&tc.mockService, logger)
 			req := httptest.NewRequest(http.MethodDelete, "/api/v1/products/"+tc.productID+tc.urlParams, nil)
 			req.SetPathValue("id", tc.productID)
 			rr := httptest.NewRecorder()
@@ -543,7 +550,8 @@ func Test_ProductAPI_DeleteByID(t *testing.T) {
 
 func Test_ProductAPI_HealthCheck(t *testing.T) {
 	// given
-	api := NewAPI(nil) // No service needed for health check
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	api := NewAPI(nil, logger) // No service needed for health check
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/healthz", nil)
 	rr := httptest.NewRecorder()
 

@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 
+	"github.com/abgdnv/gocommerce/internal/platform/contextkeys"
 	producterrors "github.com/abgdnv/gocommerce/internal/product/errors"
 	"github.com/abgdnv/gocommerce/internal/product/service"
 	"github.com/go-playground/validator/v10"
@@ -30,64 +31,75 @@ type ProductAPI interface {
 type api struct {
 	service  service.ProductService
 	validate *validator.Validate
+	logger   *slog.Logger
 }
 
 // NewAPI creates a new instance of ProductAPI with the provided service.
-func NewAPI(service service.ProductService) ProductAPI {
+func NewAPI(service service.ProductService, logger *slog.Logger) ProductAPI {
 	return &api{
 		service:  service,
 		validate: validator.New(),
+		logger:   logger.With("component", "api"),
 	}
 }
 
 // FindByID retrieves a product by its ID.
 func (a *api) FindByID(w http.ResponseWriter, r *http.Request) {
-	id, ok := parseID(w, r)
+	mLogger := loggerWithReqID(r, a)
+	id, ok := parseID(w, r, mLogger)
 	if !ok {
 		return
 	}
-	t, err := a.service.FindByID(r.Context(), id)
+
+	mLogger.DebugContext(r.Context(), "Received request to find product by ID", "ID", id)
+	found, err := a.service.FindByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, producterrors.ErrProductNotFound) {
-			respondError(w, http.StatusNotFound, fmt.Sprintf("Product with ID %s not found", id))
+			mLogger.WarnContext(r.Context(), "Product not found", "ID", id)
+			respondError(w, mLogger, http.StatusNotFound, fmt.Sprintf("Product with ID %s not found", id))
 			return
 		}
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve product with ID %s", id))
+		mLogger.ErrorContext(r.Context(), "Error retrieving product", "ID", id, "error", err)
+		respondError(w, mLogger, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve product with ID %s", id))
 		return
 	}
-	log.Printf("Retrieved Product ID: %s, Name: %s", t.ID, t.Name)
-	respondJSON(w, http.StatusOK, t)
+	mLogger.DebugContext(r.Context(), "Successfully retrieved product", "ID", found.ID, "Name", found.Name)
+	respondJSON(w, mLogger, http.StatusOK, found)
 
 }
 
 // FindAll retrieves a list of all products.
 func (a *api) FindAll(w http.ResponseWriter, r *http.Request) {
-	limit, ok := parseUrlParam(r, w, "limit")
+	mLogger := loggerWithReqID(r, a)
+	limit, ok := parseUrlParam(r, w, mLogger, "limit")
 	if !ok {
 		return
 	}
-	offset, ok := parseUrlParam(r, w, "offset")
+	offset, ok := parseUrlParam(r, w, mLogger, "offset")
 	if !ok {
 		return
 	}
-
+	mLogger.DebugContext(r.Context(), "Received request to find all products", "limit", limit, "offset", offset)
 	list, err := a.service.FindAll(r.Context(), offset, limit)
 	if err != nil {
-		log.Printf("Error fetching products: %v", err)
-		respondError(w, http.StatusInternalServerError, "Failed to fetch products")
+		mLogger.ErrorContext(r.Context(), "Error retrieving product list", "error", err)
+		respondError(w, mLogger, http.StatusInternalServerError, "Failed to fetch products")
 		return
 	}
-	respondJSON(w, http.StatusOK, *list)
+	mLogger.DebugContext(r.Context(), "Successfully retrieved product list", "count", len(*list))
+	respondJSON(w, mLogger, http.StatusOK, *list)
 }
 
 // Create handles the creation of a new product.
 func (a *api) Create(w http.ResponseWriter, r *http.Request) {
+	mLogger := loggerWithReqID(r, a)
 	var productCreateDto service.ProductCreateDto
 	if err := json.NewDecoder(r.Body).Decode(&productCreateDto); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body")
+		mLogger.ErrorContext(r.Context(), "Error decoding request body", "error", err)
+		respondError(w, mLogger, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-
+	mLogger.DebugContext(r.Context(), "Received request to create product", "product", productCreateDto)
 	if err := a.validate.Struct(productCreateDto); err != nil {
 		var validationErrors validator.ValidationErrors
 		if errors.As(err, &validationErrors) {
@@ -97,33 +109,37 @@ func (a *api) Create(w http.ResponseWriter, r *http.Request) {
 				// fieldErr.Tag() returns "required", "max", etc.
 				errorResponse[fieldErr.Field()] = "failed on rule: " + fieldErr.Tag()
 			}
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{"validation_errors": errorResponse})
+			mLogger.WarnContext(r.Context(), "Validation errors occurred", "errors", errorResponse)
+			respondJSON(w, mLogger, http.StatusBadRequest, map[string]interface{}{"validation_errors": errorResponse})
 			return
 		}
+		mLogger.ErrorContext(r.Context(), "Error validating request body", "error", err)
 		// If it's not a validation error, we can return a generic error.
-		respondError(w, http.StatusBadRequest, "Invalid request body")
+		respondError(w, mLogger, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	newProduct, err := a.service.Create(r.Context(), productCreateDto)
 	if err != nil {
-		log.Printf("Error creating product: %v", err)
-		respondError(w, http.StatusInternalServerError, "Failed to create product")
+		mLogger.ErrorContext(r.Context(), "Error creating product", "error", err)
+		respondError(w, mLogger, http.StatusInternalServerError, "Failed to create product")
 		return
 	}
-	log.Printf("Created Product ID: %s, Name: %s", newProduct.ID, newProduct.Name)
-	respondJSON(w, http.StatusCreated, newProduct)
+	mLogger.InfoContext(r.Context(), "Product created successfully", "ID", newProduct.ID, "Name", newProduct.Name)
+	respondJSON(w, mLogger, http.StatusCreated, newProduct)
 }
 
 func (a *api) Update(w http.ResponseWriter, r *http.Request) {
-	id, ok := parseID(w, r)
+	mLogger := loggerWithReqID(r, a)
+	id, ok := parseID(w, r, mLogger)
 	if !ok {
 		return
 	}
-
+	mLogger.DebugContext(r.Context(), "Received request to update product", "ID", id)
 	var productDTO service.ProductDto
 	if err := json.NewDecoder(r.Body).Decode(&productDTO); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body")
+		mLogger.ErrorContext(r.Context(), "Error decoding request body", "error", err)
+		respondError(w, mLogger, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
@@ -134,10 +150,12 @@ func (a *api) Update(w http.ResponseWriter, r *http.Request) {
 			for _, fieldErr := range validationErrors {
 				errorResponse[fieldErr.Field()] = "failed on rule: " + fieldErr.Tag()
 			}
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{"validation_errors": errorResponse})
+			mLogger.WarnContext(r.Context(), "Validation errors occurred", "errors", errorResponse)
+			respondJSON(w, mLogger, http.StatusBadRequest, map[string]interface{}{"validation_errors": errorResponse})
 			return
 		}
-		respondError(w, http.StatusBadRequest, "Invalid request body")
+		mLogger.ErrorContext(r.Context(), "Error validating request body", "error", err)
+		respondError(w, mLogger, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
@@ -146,26 +164,29 @@ func (a *api) Update(w http.ResponseWriter, r *http.Request) {
 	updated, err := a.service.Update(r.Context(), productDTO)
 	if err != nil {
 		if errors.Is(err, producterrors.ErrProductNotFound) {
-			respondError(w, http.StatusNotFound, fmt.Sprintf("Product with ID %s not found", id))
+			mLogger.WarnContext(r.Context(), "Product not found for update", "ID", id)
+			respondError(w, mLogger, http.StatusNotFound, fmt.Sprintf("Product with ID %s not found", id))
 			return
 		}
-		log.Printf("Error updating product: %v", err)
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update product with ID %s", id))
+		mLogger.ErrorContext(r.Context(), "Error updating product", "ID", id, "error", err)
+		respondError(w, mLogger, http.StatusInternalServerError, fmt.Sprintf("Failed to update product with ID %s", id))
 		return
 	}
-	log.Printf("Updated Product ID: %s, Name: %s", updated.ID, updated.Name)
-	respondJSON(w, http.StatusOK, updated)
+	mLogger.InfoContext(r.Context(), "Product updated successfully", "ID", updated.ID, "Name", updated.Name)
+	respondJSON(w, mLogger, http.StatusOK, updated)
 }
 
 func (a *api) UpdateStock(w http.ResponseWriter, r *http.Request) {
-	id, ok := parseID(w, r)
+	mLogger := loggerWithReqID(r, a)
+	id, ok := parseID(w, r, mLogger)
 	if !ok {
 		return
 	}
-
+	mLogger.DebugContext(r.Context(), "Received request to update stock for product", "ID", id)
 	var stockUpdateDTO service.StockUpdateDto
 	if err := json.NewDecoder(r.Body).Decode(&stockUpdateDTO); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body")
+		mLogger.ErrorContext(r.Context(), "Error decoding request body", "error", err)
+		respondError(w, mLogger, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
@@ -176,48 +197,54 @@ func (a *api) UpdateStock(w http.ResponseWriter, r *http.Request) {
 			for _, fieldErr := range validationErrors {
 				errorResponse[fieldErr.Field()] = "failed on rule: " + fieldErr.Tag()
 			}
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{"validation_errors": errorResponse})
+			mLogger.WarnContext(r.Context(), "Validation errors occurred", "errors", errorResponse)
+			respondJSON(w, mLogger, http.StatusBadRequest, map[string]interface{}{"validation_errors": errorResponse})
 			return
 		}
-		respondError(w, http.StatusBadRequest, "Invalid request body")
+		mLogger.ErrorContext(r.Context(), "Error validating request body", "error", err)
+		respondError(w, mLogger, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	updated, err := a.service.UpdateStock(r.Context(), id, stockUpdateDTO.Stock, stockUpdateDTO.Version)
 	if err != nil {
 		if errors.Is(err, producterrors.ErrProductNotFound) {
-			respondError(w, http.StatusNotFound, fmt.Sprintf("Product with ID %s not found", id))
+			mLogger.WarnContext(r.Context(), "Product not found for stock update", "ID", id)
+			respondError(w, mLogger, http.StatusNotFound, fmt.Sprintf("Product with ID %s not found", id))
 			return
 		}
-		log.Printf("Error updating product stock: %v", err)
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update stock for product with ID %s", id))
+		mLogger.ErrorContext(r.Context(), "Error updating stock for product", "ID", id, "error", err)
+		respondError(w, mLogger, http.StatusInternalServerError, fmt.Sprintf("Failed to update stock for product with ID %s", id))
 		return
 	}
-	log.Printf("Updated Stock for Product ID: %s, New Stock: %d", updated.ID, updated.Stock)
-	respondJSON(w, http.StatusOK, updated)
+	mLogger.InfoContext(r.Context(), "Stock updated successfully for product", "ID", updated.ID, "NewStock", updated.Stock)
+	respondJSON(w, mLogger, http.StatusOK, updated)
 }
 
 // DeleteByID deletes a product by its ID.
 func (a *api) DeleteByID(w http.ResponseWriter, r *http.Request) {
-	id, ok := parseID(w, r)
+	mLogger := loggerWithReqID(r, a)
+	id, ok := parseID(w, r, mLogger)
 	if !ok {
 		return
 	}
-	version, ok := parseUrlParam(r, w, "version")
+	version, ok := parseUrlParam(r, w, mLogger, "version")
 	if !ok {
 		return
 	}
-
+	mLogger.DebugContext(r.Context(), "Received request to delete product", "ID", id, "Version", version)
 	if err := a.service.DeleteByID(r.Context(), id, version); err != nil {
 		if errors.Is(err, producterrors.ErrProductNotFound) {
-			respondError(w, http.StatusNotFound, fmt.Sprintf("Product with ID %s not found", id))
+			mLogger.WarnContext(r.Context(), "Product not found for deletion", "ID", id)
+			respondError(w, mLogger, http.StatusNotFound, fmt.Sprintf("Product with ID %s not found", id))
 			return
 		}
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to delete product with ID %s", id))
+		mLogger.ErrorContext(r.Context(), "Error deleting product", "ID", id, "error", err)
+		respondError(w, mLogger, http.StatusInternalServerError, fmt.Sprintf("Failed to delete product with ID %s", id))
 		return
 
 	}
-	log.Printf("Deleted Product ID: %s", id)
+	mLogger.InfoContext(r.Context(), "Product deleted successfully", "ID", id)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -226,7 +253,7 @@ func (a *api) HealthCheck(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func respondJSON(w http.ResponseWriter, status int, payload interface{}) {
+func respondJSON(w http.ResponseWriter, logger *slog.Logger, status int, payload interface{}) {
 	// Handle nil payload
 	if payload == nil {
 		w.WriteHeader(status)
@@ -235,7 +262,7 @@ func respondJSON(w http.ResponseWriter, status int, payload interface{}) {
 
 	response, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("Error encoding JSON response: %v", err)
+		logger.Error("Error encoding response to JSON", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -244,31 +271,40 @@ func respondJSON(w http.ResponseWriter, status int, payload interface{}) {
 	_, _ = w.Write(response)
 }
 
-func respondError(w http.ResponseWriter, status int, message string) {
-	respondJSON(w, status, map[string]string{"error": message})
+func respondError(w http.ResponseWriter, logger *slog.Logger, status int, message string) {
+	respondJSON(w, logger, status, map[string]string{"error": message})
 }
 
 // parseID extracts and validates the product ID from the request path. Returns the ID and a boolean indicating success.
-func parseID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+func parseID(w http.ResponseWriter, r *http.Request, logger *slog.Logger) (uuid.UUID, bool) {
 	pathValueID := r.PathValue("id")
 	id, err := uuid.Parse(pathValueID)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid product ID: %s", pathValueID))
+		respondError(w, logger, http.StatusBadRequest, fmt.Sprintf("Invalid product ID: %s", pathValueID))
 		return uuid.UUID{}, false
 	}
 	return id, true
 }
 
-func parseUrlParam(r *http.Request, w http.ResponseWriter, key string) (int32, bool) {
+func parseUrlParam(r *http.Request, w http.ResponseWriter, logger *slog.Logger, key string) (int32, bool) {
 	value := r.URL.Query().Get(key)
 	if value == "" {
-		respondError(w, http.StatusBadRequest, fmt.Sprintf("%s url parameter is required", key))
+		respondError(w, logger, http.StatusBadRequest, fmt.Sprintf("%s url parameter is required", key))
 		return 0, false // Return false if the parameter is not present
 	}
 	intValue, err := strconv.ParseInt(value, 10, 32)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid %s number: %s", key, value))
+		respondError(w, logger, http.StatusBadRequest, fmt.Sprintf("Invalid %s number: %s", key, value))
 		return 0, false
 	}
 	return int32(intValue), true
+}
+
+// loggerWithReqID creates a logger with the request ID from the context.
+func loggerWithReqID(r *http.Request, a *api) *slog.Logger {
+	reqID, found := contextkeys.GetRequestID(r.Context())
+	if !found {
+		reqID = "unknown"
+	}
+	return a.logger.With("request_id", reqID)
 }

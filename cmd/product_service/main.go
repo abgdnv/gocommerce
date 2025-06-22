@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
 
 	"github.com/abgdnv/gocommerce/internal/config"
+	"github.com/abgdnv/gocommerce/internal/platform/web"
 	"github.com/abgdnv/gocommerce/internal/product/handler"
 	"github.com/abgdnv/gocommerce/internal/product/service"
 	"github.com/abgdnv/gocommerce/internal/product/store"
@@ -28,30 +30,43 @@ func main() {
 	}
 	log.Printf("Configuration loaded: %v", cfg)
 
+	// Set up structured logging
+	logLevel := toLevel(cfg.Log.Level)
+	loggerOpts := &slog.HandlerOptions{
+		AddSource: logLevel == slog.LevelDebug,
+		Level:     logLevel,
+	}
+	logHandler := slog.NewJSONHandler(os.Stdout, loggerOpts)
+	logger := slog.New(logHandler)
+	logger.Info("Product service starting...", "config_log_level", cfg.Log.Level, "actual_slog_level", logLevel.String())
+
 	// Create context with timeout for database connection
 	poolCtx, poolCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer poolCancel()
 
 	dbPool, errPool := pgxpool.New(poolCtx, cfg.Database.URL)
 	if errPool != nil {
-		log.Fatalf("Unable to create connection pool: %v\n", errPool)
+		logger.Error("Unable to create connection pool", "error", errPool)
+		os.Exit(1)
 	}
 	defer dbPool.Close()
 
 	if err := dbPool.Ping(poolCtx); err != nil {
-		log.Fatalf("Unable to ping database: %v\n", err)
+		logger.Error("Unable to ping database", "error", err)
+		os.Exit(1)
 	}
-	log.Println("Successfully connected to the database!")
+	logger.Info("Successfully connected to the database!")
 
 	pService := service.NewService(store.NewPgStore(dbPool))
 
-	pApi := handler.NewAPI(pService)
+	pApi := handler.NewAPI(pService, logger)
 
 	mux := chi.NewRouter()
-	mux.Use(middleware.Recoverer)
-	mux.Use(middleware.RealIP)
-	mux.Use(middleware.Logger)
+	mux.Use(middleware.RequestID)
+	mux.Use(web.RequestIDInjector)
+	mux.Use(web.StructuredLogger(logger))
 	mux.Use(middleware.Timeout(cfg.HTTPServer.Timeout.Read + 2*time.Second))
+	mux.Use(web.Recoverer(logger))
 
 	mux.Route("/api/v1/products", func(r chi.Router) {
 		r.Get("/", pApi.FindAll)
@@ -82,21 +97,36 @@ func main() {
 		sigint := make(chan os.Signal, 1)
 		signal.Notify(sigint, os.Interrupt)
 		<-sigint
-		fmt.Println("Server is shutting down...")
+		logger.Info("Server is shutting down")
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		if err := server.Shutdown(ctx); err != nil {
-			log.Printf("HTTP server Shutdown: %v\n", err)
+			logger.Error("HTTP server Shutdown", "error", err)
 		}
 		close(idleConnectionsClosed)
 	}()
 
-	log.Printf("Starting server on %s", server.Addr)
+	logger.Info("Starting server", "address", server.Addr)
 
 	err := server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatalf("Server failed to start: %v", err)
+		logger.Error("Server failed to start", "error", err)
+		os.Exit(1)
 	}
 	// Wait for the server to shut down gracefully
 	<-idleConnectionsClosed
+}
+
+// toLevel converts a string representation of a log level to slog.Level.
+func toLevel(level string) slog.Level {
+	switch level {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }
