@@ -1,0 +1,28 @@
+# System files
+.DS_Store
+Thumbs.db
+
+# Documentation files
+*.md
+README.md
+LICENSE
+
+# Configuration files
+.env
+.golangci.yaml
+.pre-commit-config.yaml
+sqlc.yaml
+
+# Git files
+.git/
+.gitignore
+
+# IDE/project files
+.idea/
+*.iml
+.vscode/
+
+# Docker-related files
+.dockerignore
+Dockerfile.product
+docker-compose.yml
