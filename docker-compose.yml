@@ -20,6 +20,12 @@ services:
       start_period: 30s
 
   product_service:
+    build:
+      context: .
+      dockerfile: Dockerfile.product
+      args:
+        PRODUCT_SVC_DOCKER_IMAGE: ${PRODUCT_SVC_DOCKER_IMAGE}
+        PRODUCT_SVC_DOCKER_TAG: ${PRODUCT_SVC_DOCKER_TAG}
     image: ${PRODUCT_SVC_DOCKER_IMAGE}:${PRODUCT_SVC_DOCKER_TAG}
     restart: unless-stopped
     container_name: product-service
