@@ -4,14 +4,41 @@ services:
     restart: always
     container_name: postgres
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT_HOST}:5432"
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - ecommerce-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  product_service:
+    image: ${PRODUCT_SVC_DOCKER_IMAGE}:${PRODUCT_SVC_DOCKER_TAG}
+    restart: unless-stopped
+    container_name: product-service
+    ports:
+      - "${PRODUCT_SVC_APP_PORT_HOST}:${PRODUCT_SVC_APP_PORT}"
+    environment:
+      - PRODUCT_SVC_SERVER_PORT=${PRODUCT_SVC_APP_PORT}
+      - DATABASE_URL=postgresql://${PRODUCT_SVC_DB_USER}:${PRODUCT_SVC_DB_PASSWORD}@${PRODUCT_SVC_DB_HOST}:${PRODUCT_SVC_DB_PORT}/${PRODUCT_SVC_DB_NAME}?sslmode=${PRODUCT_SVC_DB_SSLMODE}
+      - PRODUCT_SVC_LOG_LEVEL=${PRODUCT_SVC_LOG_LEVEL}
+      - PRODUCT_SVC_SERVER_MAXHEADERBYTES=${PRODUCT_SVC_SERVER_MAXHEADERBYTES}
+      - PRODUCT_SVC_SERVER_TIMEOUT_READ=${PRODUCT_SVC_SERVER_TIMEOUT_READ}
+      - PRODUCT_SVC_SERVER_TIMEOUT_WRITE=${PRODUCT_SVC_SERVER_TIMEOUT_WRITE}
+      - PRODUCT_SVC_SERVER_TIMEOUT_IDLE=${PRODUCT_SVC_SERVER_TIMEOUT_IDLE}
+      - PRODUCT_SVC_SERVER_TIMEOUT_READHEADER=${PRODUCT_SVC_SERVER_TIMEOUT_READHEADER}
+    networks:
+      - ecommerce-network
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   postgres_data:
