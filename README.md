@@ -26,7 +26,7 @@ This repository will host multiple services, such as `product`, `order`, `notifi
 
 ## Getting Started
 
-The following instructions are for the `product_service`. Similar steps will apply to other services.
+The following instructions are for the `product_service`. The primary way to run the services is with Docker Compose.
 
 ### 1. Clone the repository
 
@@ -37,7 +37,56 @@ cd gocommerce
 
 ### 2. Configure the application
 
-The application can be configured via `config.yaml`, `.env` file, or environment variables. The database URL in `config.yaml` is set to connect to the Docker container by default. This example is for the product service.
+Create a `.env` file from the example. This file holds the configuration for Docker Compose and the services.
+
+```sh
+cp example.env .env
+```
+
+You can modify `.env` if you need to change ports or credentials.
+
+### 3. Run with Docker Compose
+
+Build and start the services in detached mode:
+
+```sh
+docker-compose up --build -d
+```
+
+This command starts both the `product_service` and its PostgreSQL database.
+
+### 4. Run Database Migrations
+
+With the database container running, apply the migrations. You'll need `golang-migrate` installed locally.
+
+```sh
+migrate -path internal/product/migrations -database "postgres://postgres:postgres@localhost:5432/gocommerce?sslmode=disable" up
+```
+
+The connection string should match the values in your `.env` file. The service should now be running and accessible.
+
+---
+
+### Development
+
+For local development, you might want to run the Go application directly on your host.
+
+1.  **Start only the database:**
+    ```sh
+    docker-compose up -d db
+    ```
+2.  **Run migrations:** (same command as above)
+3.  **Run the application:**
+    ```sh
+    go run ./cmd/product_service/
+    ```
+
+### Configuration
+
+The application is configured using `koanf` with the following precedence:
+1. Environment variables (e.g., `PRODUCT_SVC_SERVER_PORT`)
+2. `.env` file
+3. `config.yaml` file
 
 An example `config.yaml` might look like this:
 
@@ -73,29 +122,6 @@ Environment variables are mapped to configuration keys (e.g., `SERVER_PORT` maps
 | `server.timeout.readHeader` | `PRODUCT_SVC_SERVER_TIMEOUT_READHEADER` | The amount of time allowed to read request headers. |
 | `database.url` | `PRODUCT_SVC_DATABASE_URL` | The connection URL for the PostgreSQL database. |
 | `log.level` | `PRODUCT_SVC_LOG_LEVEL` | The logging level. Can be `debug`, `info`, `warn`, `error`. |
-
-### 3. Start the database
-Run the PostgreSQL database using Docker Compose:
-
-```sh
-docker-compose up -d
-```
-
-This will start a PostgreSQL container and expose it on port 5432. Other services might require their own databases.
-
-### 4. Run Database Migrations
-You'll need golang-migrate installed. Run the migrations for the product service located in `internal/product/migrations`:
-
-```sh
-migrate -path internal/product/migrations -database "postgres://postgres:postgres@localhost:5432/gocommerce?sslmode=disable" up
-```
-
-### 5. Run the application
-
-To run the product service:
-```sh
-go run ./cmd/product_service/
-```
 
 ### Product Service API Endpoints
 The API is versioned under /api/v1.
