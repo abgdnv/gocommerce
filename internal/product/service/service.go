@@ -4,7 +4,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/abgdnv/gocommerce/internal/product/store"
 	"github.com/abgdnv/gocommerce/internal/product/store/db"
@@ -79,7 +78,6 @@ type StockUpdateDto struct {
 func (s *service) FindByID(ctx context.Context, id uuid.UUID) (*ProductDto, error) {
 	product, err := s.repository.FindByID(ctx, id)
 	if err != nil {
-		log.Printf("Error fetching product by ID %s: %v", id, err)
 		return nil, fmt.Errorf("failed to fetch product by ID %s: %w", id, err)
 	}
 
@@ -91,7 +89,6 @@ func (s *service) FindByID(ctx context.Context, id uuid.UUID) (*ProductDto, erro
 func (s *service) FindAll(ctx context.Context, offset, limit int32) (*[]ProductDto, error) {
 	products, err := s.repository.FindAll(ctx, offset, limit)
 	if err != nil {
-		log.Printf("Error fetching products: %v", err)
 		return nil, fmt.Errorf("failed to fetch products: %w", err)
 	}
 	productDTOs := make([]ProductDto, len(*products))
@@ -108,7 +105,6 @@ func (s *service) FindAll(ctx context.Context, offset, limit int32) (*[]ProductD
 func (s *service) Create(ctx context.Context, product ProductCreateDto) (*ProductDto, error) {
 	p, err := s.repository.Create(ctx, product.Name, product.Price, product.Stock)
 	if err != nil {
-		log.Printf("Error creating product: %v", err)
 		return nil, fmt.Errorf("failed to create product: %w", err)
 	}
 
@@ -126,7 +122,6 @@ func (s *service) Update(ctx context.Context, product ProductDto) (*ProductDto, 
 		product.Stock,
 		product.Version)
 	if err != nil {
-		log.Printf("Error updating product with ID %s: %v", product.ID, err)
 		return nil, fmt.Errorf("failed to update product with ID %s: %w", product.ID, err)
 	}
 
@@ -138,7 +133,6 @@ func (s *service) Update(ctx context.Context, product ProductDto) (*ProductDto, 
 func (s *service) UpdateStock(ctx context.Context, id uuid.UUID, stock int32, version int32) (*ProductDto, error) {
 	product, err := s.repository.UpdateStock(ctx, id, stock, version)
 	if err != nil {
-		log.Printf("Error updating stock for product with ID %s: %v", id, err)
 		return nil, fmt.Errorf("failed to update stock for product with ID %s: %w", id, err)
 	}
 
