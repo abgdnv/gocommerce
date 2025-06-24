@@ -1,4 +1,7 @@
 # gocommerce
+[![Go Report Card](https://goreportcard.com/badge/github.com/abgdnv/gocommerce)](https://goreportcard.com/report/github.com/abgdnv/gocommerce)
+[![License](https://img.shields.io/badge/license-MIT-blue)](https://github.com/abgdnv/gocommerce/blob/main/LICENSE)
+
 
 A simple yet robust microservices project for an e-commerce platform, built with Go. This project serves as a template for building production-ready microservices, demonstrating best practices in project structure, configuration management, database interaction, and testing.
 
