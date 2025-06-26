@@ -13,12 +13,7 @@ import (
 	"time"
 
 	"github.com/abgdnv/gocommerce/internal/config"
-	"github.com/abgdnv/gocommerce/internal/platform/web"
-	"github.com/abgdnv/gocommerce/internal/product/handler"
-	"github.com/abgdnv/gocommerce/internal/product/service"
-	"github.com/abgdnv/gocommerce/internal/product/store"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	"github.com/abgdnv/gocommerce/internal/product/app"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -31,56 +26,29 @@ func main() {
 	log.Printf("Configuration loaded: %v", cfg)
 
 	// Set up structured logging
-	logLevel := toLevel(cfg.Log.Level)
-	loggerOpts := &slog.HandlerOptions{
-		AddSource: logLevel == slog.LevelDebug,
-		Level:     logLevel,
-	}
-	logHandler := slog.NewJSONHandler(os.Stdout, loggerOpts)
-	logger := slog.New(logHandler)
+	logLevel, logger := newLogger(cfg)
 	logger.Info("Product service starting...", "config_log_level", cfg.Log.Level, "actual_slog_level", logLevel.String())
 
 	// Create context with timeout for database connection
 	poolCtx, poolCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer poolCancel()
 
-	dbPool, errPool := pgxpool.New(poolCtx, cfg.Database.URL)
-	if errPool != nil {
-		logger.Error("Unable to create connection pool", "error", errPool)
-		os.Exit(1)
-	}
+	// Create a new database connection pool
+	dbPool := newDbPool(poolCtx, cfg, logger)
 	defer dbPool.Close()
-
+	// Ping the database to ensure the connection is established (fail early if not)
 	if err := dbPool.Ping(poolCtx); err != nil {
 		logger.Error("Unable to ping database", "error", err)
 		os.Exit(1)
 	}
 	logger.Info("Successfully connected to the database!")
 
-	pService := service.NewService(store.NewPgStore(dbPool))
+	mux, err := app.SetupApplication(cfg, dbPool, logger)
+	if err != nil {
+		logger.Error("Error setting up application", "error", err)
+		os.Exit(1)
+	}
 
-	pApi := handler.NewAPI(pService, logger)
-
-	mux := chi.NewRouter()
-	mux.Use(middleware.RequestID)
-	mux.Use(web.RequestIDInjector)
-	mux.Use(web.StructuredLogger(logger))
-	mux.Use(middleware.Timeout(cfg.HTTPServer.Timeout.Read + 2*time.Second))
-	mux.Use(web.Recoverer(logger))
-
-	mux.Route("/api/v1/products", func(r chi.Router) {
-		r.Get("/", pApi.FindAll)
-		r.Post("/", pApi.Create)
-
-		r.Route("/{id}", func(r chi.Router) {
-			r.Get("/", pApi.FindByID)
-			r.Delete("/", pApi.DeleteByID)
-			r.Put("/", pApi.Update)
-			r.Put("/stock", pApi.UpdateStock)
-		})
-	})
-
-	mux.Get("/healthz", pApi.HealthCheck)
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPServer.Port),
 		Handler:           mux,
@@ -108,13 +76,35 @@ func main() {
 
 	logger.Info("Starting server", "address", server.Addr)
 
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Error("Server failed to start", "error", err)
 		os.Exit(1)
 	}
 	// Wait for the server to shut down gracefully
 	<-idleConnectionsClosed
+}
+
+func newLogger(cfg *config.Config) (slog.Level, *slog.Logger) {
+	logLevel := toLevel(cfg.Log.Level)
+	loggerOpts := &slog.HandlerOptions{
+		AddSource: logLevel == slog.LevelDebug,
+		Level:     logLevel,
+	}
+	logHandler := slog.NewJSONHandler(os.Stdout, loggerOpts)
+	logger := slog.New(logHandler)
+	return logLevel, logger
+}
+
+// newDbPool creates a new database connection pool with the provided context and configuration,
+// logs an error and exits the application if the pool cannot be created.
+func newDbPool(poolCtx context.Context, cfg *config.Config, logger *slog.Logger) *pgxpool.Pool {
+	dbPool, errPool := pgxpool.New(poolCtx, cfg.Database.URL)
+	if errPool != nil {
+		logger.Error("Unable to create connection pool", "error", errPool)
+		os.Exit(1)
+	}
+	return dbPool
 }
 
 // toLevel converts a string representation of a log level to slog.Level.
