@@ -34,10 +34,15 @@ type Config struct {
 	Log struct {
 		Level string `koanf:"level"`
 	} `koanf:"log"`
+
+	PProf struct {
+		Enabled bool   `koanf:"enabled"`
+		Addr    string `koanf:"addr"`
+	} `koanf:"pprof"`
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("server.port=%d, server.maxHeaderBytes=%d , server.timeout.read=%v, server.timeout.write=%v, server.timeout.idle=%v, server.timeout.readHeader=%v, database_url=%v, log_level= %s.",
+	return fmt.Sprintf("server.port=%d, server.maxHeaderBytes=%d , server.timeout.read=%v, server.timeout.write=%v, server.timeout.idle=%v, server.timeout.readHeader=%v, database_url=%v, log_level= %s, pprof_enabled=%t, pprof_address=%s",
 		c.HTTPServer.Port,
 		c.HTTPServer.MaxHeaderBytes,
 		c.HTTPServer.Timeout.Read,
@@ -45,7 +50,10 @@ func (c Config) String() string {
 		c.HTTPServer.Timeout.Idle,
 		c.HTTPServer.Timeout.ReadHeader,
 		maskURL(c.Database.URL),
-		c.Log.Level)
+		c.Log.Level,
+		c.PProf.Enabled,
+		c.PProf.Addr,
+	)
 }
 
 func maskURL(url string) string {

@@ -12,6 +12,8 @@ import (
 	"os/signal"
 	"time"
 
+	_ "net/http/pprof"
+
 	"github.com/abgdnv/gocommerce/internal/config"
 	"github.com/abgdnv/gocommerce/internal/product/app"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -28,6 +30,13 @@ func main() {
 	// Set up structured logging
 	logLevel, logger := newLogger(cfg)
 	logger.Info("Product service starting...", "config_log_level", cfg.Log.Level, "actual_slog_level", logLevel.String())
+
+	// Set up pprof server for profiling
+	if cfg.PProf.Enabled {
+		go pprofServer(cfg.PProf.Addr, logger)
+	} else {
+		logger.Info("Pprof server is disabled")
+	}
 
 	// Create context with timeout for database connection
 	poolCtx, poolCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -94,6 +103,15 @@ func newLogger(cfg *config.Config) (slog.Level, *slog.Logger) {
 	logHandler := slog.NewJSONHandler(os.Stdout, loggerOpts)
 	logger := slog.New(logHandler)
 	return logLevel, logger
+}
+
+// pprofServer starts a pprof server for profiling the application.
+func pprofServer(pprofListenAddr string, logger *slog.Logger) {
+	logger.Info("Starting pprof server", "address", pprofListenAddr)
+	// http.ListenAndServe will use the http.DefaultServeMux, which includes pprof handlers
+	if err := http.ListenAndServe(pprofListenAddr, nil); err != nil {
+		logger.Error("Pprof server failed to start", "error", err)
+	}
 }
 
 // newDbPool creates a new database connection pool with the provided context and configuration,

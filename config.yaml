@@ -10,4 +10,6 @@ database:
   url: "postgresql://user:password@localhost:5432/gocommerce"
 log:
   level: info
-
+pprof:
+  enabled: false
+  addr: "localhost:6060"
