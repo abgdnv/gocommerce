@@ -140,10 +140,23 @@ The API is versioned under /api/v1.
 | PUT     | /api/v1/products/{id}/stock|   Update only the stock quantity of a product.|
 
 ## Testing
-To run all unit tests, use the following command:
-```sh
-go test -v ./...
-```
+
+### Test Types
+- **Unit Tests**: Located alongside the code they test. They are self-contained and mock any external dependencies.
+- **Integration Tests** (`internal/product/store`): Test the database layer against a real PostgreSQL instance running in a Docker container.
+- **E2E Tests** (`internal/tests/e2e`): Test the full application stack by making HTTP requests to the service, which interacts with a test database.
+
+### Skipping Tests
+You can skip integration or E2E tests by setting environment variables. This is useful for running only unit tests in environments without Docker.
+
+- Skip integration tests:
+  ```sh
+  PRODUCT_SVC_SKIP_INTEGRATION_TESTS=1 go test -v ./...
+  ```
+- Skip E2E tests:
+  ```sh
+  PRODUCT_SVC_SKIP_E2E_TESTS=1 go test -v ./...
+  ```
 
 ## Tooling
 ### Code Generation
@@ -182,4 +195,3 @@ Now `pre-commit` will run automatically on `git commit`. You can also run it man
 ```sh
 pre-commit run --all-files
 ```
-
