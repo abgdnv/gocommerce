@@ -1,5 +1,6 @@
 # gocommerce
 [![Go Report Card](https://goreportcard.com/badge/github.com/abgdnv/gocommerce)](https://goreportcard.com/report/github.com/abgdnv/gocommerce)
+![CI](https://github.com/abgdnv/gocommerce/actions/workflows/go.yml/badge.svg)
 [![License](https://img.shields.io/badge/license-MIT-blue)](https://github.com/abgdnv/gocommerce/blob/main/LICENSE)
 
 
