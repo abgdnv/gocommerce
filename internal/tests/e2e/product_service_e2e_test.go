@@ -36,6 +36,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -52,14 +53,14 @@ const productURL = "/api/v1/products"
 
 // ProductServiceE2ESuite is a test suite for end-to-end tests of the ProductService.
 type ProductServiceE2ESuite struct {
-	suite.Suite
-	pgContainer *postgres.PostgresContainer // Контейнер PostgreSQL
-	dbPool      *pgxpool.Pool               // Пул соединений к тестовой БД
-	server      *httptest.Server            // Тестовый HTTP-сервер для ProductService
-	httpClient  *http.Client                // HTTP-клиент для запросов к серверу
-	appCfg      *config.Config              // Конфигурация приложения для тестов
-	logger      *slog.Logger                // Логгер для тестов
-	ctx         context.Context
+	suite.Suite                             // Embedding testify's suite for structured testing
+	pgContainer *postgres.PostgresContainer // PostgreSQL container for E2E tests
+	dbPool      *pgxpool.Pool               // PostgreSQL connection pool for E2E tests
+	server      *httptest.Server            // HTTP server for the ProductService application
+	httpClient  *http.Client                // HTTP client for making requests to the server
+	appCfg      *config.Config              // Application configuration for tests
+	logger      *slog.Logger                // Logger for the test suite
+	ctx         context.Context             // Context for the test suite, used for cancellation and timeouts
 }
 
 // testConfig creates a configuration for the ProductService application (only HTTPServer settings).
@@ -115,6 +116,17 @@ func (s *ProductServiceE2ESuite) SetupSuite() {
 	// 3. create a new pgxpool instance using the connection string
 	s.dbPool, err = pgxpool.New(s.ctx, connStr)
 	require.NoError(s.T(), err, "Failed to create pgx pool")
+
+	// 3.1 Ping the database to ensure the connection is established
+	for i := range 10 {
+		s.logger.Info("Pinging E2E PostgreSQL database", "attempt", i+1)
+		err = s.dbPool.Ping(s.ctx)
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Second * 2)
+	}
+	require.NoError(s.T(), err, "Failed to connect to PostgreSQL after retries")
 
 	// 4. Database migration
 	// Build path to migrations directory
@@ -337,6 +349,20 @@ func (s *ProductServiceE2ESuite) decodeProductListResponse(bodyBytes []byte) []s
 // --------------------------------------------------------------
 // ---------------------- E2E test methods ----------------------
 // --------------------------------------------------------------
+
+func (s *ProductServiceE2ESuite) TestFindByID_NotFound_E2E() {
+	s.T().Run("Find Product By ID - Not Found", func(t *testing.T) {
+		s.SetupTest()
+		// given
+		nonExistentID := uuid.New().String()
+
+		// when
+		_, statusCode := s.FindByID(nonExistentID)
+
+		// then
+		require.Equal(t, http.StatusNotFound, statusCode)
+	})
+}
 
 func (s *ProductServiceE2ESuite) TestFindAll_E2E() {
 	testCases := []struct {

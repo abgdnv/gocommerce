@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,17 +28,19 @@ const skipIntegrationTests = "PRODUCT_SVC_SKIP_INTEGRATION_TESTS"
 
 // ProductStoreSuite is a test suite for the ProductStore implementation.
 type ProductStoreSuite struct {
-	suite.Suite
-	pgContainer *postgres.PostgresContainer
-	dbPool      *pgxpool.Pool
-	store       ProductStore
-	ctx         context.Context
+	suite.Suite                             // Embedding testify's suite for structured testing
+	pgContainer *postgres.PostgresContainer // PostgreSQL container for E2E tests
+	dbPool      *pgxpool.Pool               // PostgreSQL connection pool for E2E tests
+	store       ProductStore                //
+	logger      *slog.Logger                // Logger for the test suite
+	ctx         context.Context             // Context for the test suite, used for cancellation and timeouts
 }
 
 // SetupSuite initializes the test suite by setting up a PostgreSQL container,
 func (s *ProductStoreSuite) SetupSuite() {
 	s.ctx = context.Background()
 	var err error
+	s.logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	dbName := "products"
 	dbUser := "user"
@@ -70,6 +73,17 @@ func (s *ProductStoreSuite) SetupSuite() {
 	s.dbPool, err = pgxpool.New(s.ctx, connStr)
 	require.NoError(s.T(), err, "Failed to create pgxpool")
 
+	// 3.1 Ping the database to ensure the connection is established
+	for i := range 10 {
+		s.logger.Info("Pinging PostgreSQL database", "attempt", i+1)
+		err = s.dbPool.Ping(s.ctx)
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Second * 2)
+	}
+	require.NoError(s.T(), err, "Failed to connect to PostgreSQL after retries")
+
 	// 4. Database migration
 	// Build path to migrations directory
 	wd, _ := os.Getwd()
@@ -81,30 +95,29 @@ func (s *ProductStoreSuite) SetupSuite() {
 	// Apply all available migrations
 	err = m.Up()
 	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		srcErr, dbErr := m.Close()
-		s.T().Logf("Migration source error on close: %v", srcErr)
-		s.T().Logf("Migration DB error on close: %v", dbErr)
+		_, _ = m.Close()
 		require.NoError(s.T(), err, "Failed to apply migrations")
 	}
-	s.T().Log("Migrations applied successfully or no changes needed.")
+	s.logger.Info("Migrations applied for E2E tests")
 
 	s.store = NewPgStore(s.dbPool)
+	s.logger.Info("Initialization complete for ProductStoreSuite")
 }
 
 // TearDownSuite cleans up resources after all tests in the suite have run.
 func (s *ProductStoreSuite) TearDownSuite() {
-	s.T().Log("Tearing down suite...")
+	s.logger.Info("Tearing down suite...")
 	if s.dbPool != nil {
 		s.dbPool.Close()
-		s.T().Log("DB pool closed.")
+		s.logger.Info("DB pool closed.")
 	}
 	if s.pgContainer != nil {
-		s.T().Log("Terminating PostgreSQL container...")
+		s.logger.Info("Terminating PostgreSQL container...")
 		err := s.pgContainer.Terminate(s.ctx)
 		if err != nil {
-			s.T().Logf("WARN: failed to terminate PostgreSQL container: %v", err)
+			s.logger.Warn("failed to terminate PostgreSQL container", "error", err)
 		} else {
-			s.T().Log("PostgreSQL container terminated.")
+			s.logger.Info("PostgreSQL container terminated.")
 		}
 	}
 }
