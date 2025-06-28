@@ -110,7 +110,7 @@ func (a *api) Create(w http.ResponseWriter, r *http.Request) {
 				errorResponse[fieldErr.Field()] = "failed on rule: " + fieldErr.Tag()
 			}
 			mLogger.WarnContext(r.Context(), "Validation errors occurred", "errors", errorResponse)
-			respondJSON(w, mLogger, http.StatusBadRequest, map[string]interface{}{"validation_errors": errorResponse})
+			respondJSON(w, mLogger, http.StatusBadRequest, map[string]any{"validation_errors": errorResponse})
 			return
 		}
 		mLogger.ErrorContext(r.Context(), "Error validating request body", "error", err)
@@ -151,7 +151,7 @@ func (a *api) Update(w http.ResponseWriter, r *http.Request) {
 				errorResponse[fieldErr.Field()] = "failed on rule: " + fieldErr.Tag()
 			}
 			mLogger.WarnContext(r.Context(), "Validation errors occurred", "errors", errorResponse)
-			respondJSON(w, mLogger, http.StatusBadRequest, map[string]interface{}{"validation_errors": errorResponse})
+			respondJSON(w, mLogger, http.StatusBadRequest, map[string]any{"validation_errors": errorResponse})
 			return
 		}
 		mLogger.ErrorContext(r.Context(), "Error validating request body", "error", err)
@@ -198,7 +198,7 @@ func (a *api) UpdateStock(w http.ResponseWriter, r *http.Request) {
 				errorResponse[fieldErr.Field()] = "failed on rule: " + fieldErr.Tag()
 			}
 			mLogger.WarnContext(r.Context(), "Validation errors occurred", "errors", errorResponse)
-			respondJSON(w, mLogger, http.StatusBadRequest, map[string]interface{}{"validation_errors": errorResponse})
+			respondJSON(w, mLogger, http.StatusBadRequest, map[string]any{"validation_errors": errorResponse})
 			return
 		}
 		mLogger.ErrorContext(r.Context(), "Error validating request body", "error", err)
@@ -253,7 +253,7 @@ func (a *api) HealthCheck(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func respondJSON(w http.ResponseWriter, logger *slog.Logger, status int, payload interface{}) {
+func respondJSON(w http.ResponseWriter, logger *slog.Logger, status int, payload any) {
 	// Handle nil payload
 	if payload == nil {
 		w.WriteHeader(status)

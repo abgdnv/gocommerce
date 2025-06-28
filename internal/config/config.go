@@ -88,7 +88,7 @@ func Load() (*Config, error) {
 
 	// 2. Load environment variables from .env file
 	if envFileMap, err := godotenv.Read(defaultEnvFile); err == nil {
-		envMap := make(map[string]interface{})
+		envMap := make(map[string]any)
 		for key, value := range envFileMap {
 			envMap[keyTransformer(key)] = value
 		}
