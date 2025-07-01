@@ -112,7 +112,7 @@ func (s *ProductServiceE2ESuite) SetupSuite() {
 	// 4. Database migration
 	// Build path to migrations directory
 	wd, _ := os.Getwd()
-	migrationsPath := filepath.Join(wd, "..", "..", "product", "migrations")
+	migrationsPath := filepath.Join(wd, "..", "..", "store", "migrations")
 	sourceURL := "file://" + migrationsPath
 	// Create a new migrate instance with the source URL and connection string
 	m, err := migrate.New(sourceURL, connStr)

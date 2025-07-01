@@ -22,7 +22,7 @@ services:
   product_service:
     build:
       context: .
-      dockerfile: Dockerfile.product
+      dockerfile: cmd/product_service/Dockerfile
       args:
         PRODUCT_SVC_DOCKER_IMAGE: ${PRODUCT_SVC_DOCKER_IMAGE}
         PRODUCT_SVC_DOCKER_TAG: ${PRODUCT_SVC_DOCKER_TAG}
@@ -35,7 +35,7 @@ services:
       - "${PRODUCT_SVC_GRPC_HOST_PORT}:${PRODUCT_SVC_GRPC_PORT}"
     environment:
       - PRODUCT_SVC_SERVER_PORT=${PRODUCT_SVC_SERVER_PORT}
-      - DATABASE_URL=${PRODUCT_SVC_DATABASE_URL}
+      - PRODUCT_SVC_DATABASE_URL=${PRODUCT_SVC_DATABASE_URL}
       - PRODUCT_SVC_LOG_LEVEL=${PRODUCT_SVC_LOG_LEVEL}
       - PRODUCT_SVC_SERVER_MAXHEADERBYTES=${PRODUCT_SVC_SERVER_MAXHEADERBYTES}
       - PRODUCT_SVC_SERVER_TIMEOUT_READ=${PRODUCT_SVC_SERVER_TIMEOUT_READ}

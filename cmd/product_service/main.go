@@ -16,12 +16,15 @@ import (
 
 	_ "net/http/pprof"
 
-	"github.com/abgdnv/gocommerce/internal/config"
 	"github.com/abgdnv/gocommerce/internal/product/app"
+	"github.com/abgdnv/gocommerce/internal/product/config"
+	"github.com/abgdnv/gocommerce/pkg/configloader"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
+
+const serviceName = "product"
 
 func main() {
 
@@ -37,7 +40,7 @@ func main() {
 
 // run initializes the application, sets up the database connection, and starts the HTTP, gRPC and pprof servers.
 func run(ctx context.Context) error {
-	cfg, cfgErr := config.Load()
+	cfg, cfgErr := configloader.Load[*config.Config](serviceName)
 	if cfgErr != nil {
 		return fmt.Errorf("failed to load configuration: %w", cfgErr)
 	}

@@ -1,26 +1,27 @@
-# gocommerce
+# GoCommerce
 [![Go Report Card](https://goreportcard.com/badge/github.com/abgdnv/gocommerce)](https://goreportcard.com/report/github.com/abgdnv/gocommerce)
 ![CI](https://github.com/abgdnv/gocommerce/actions/workflows/go.yml/badge.svg)
 [![License](https://img.shields.io/badge/license-MIT-blue)](https://github.com/abgdnv/gocommerce/blob/main/LICENSE)
 
+A foundational e-commerce demo project built on a Go-based microservices architecture. This repository serves as a template for building production-ready services, demonstrating best practices in project structure, configuration, database interaction, and testing.
 
-A simple yet robust microservices project for an e-commerce platform, built with Go. This project serves as a template for building production-ready microservices, demonstrating best practices in project structure, configuration management, database interaction, and testing.
+This repository will eventually host multiple services (products, orders, etc.), starting with the `product_service`.
 
-This repository will host multiple services, such as `product`, `order`, `notification`, etc.
+## Features (Product Service)
 
-## Features
-
--   **RESTful API**: Clean and simple APIs for CRUD operations (e.g., on products).
--   **Structured Logging**: Uses `slog` for structured, context-aware logging.
--   **Configuration Management**: Flexible configuration loading from files (`config.yaml`), environment variables, and `.env` files using `koanf`.
--   **PostgreSQL Integration**: Uses `pgx` for high-performance PostgreSQL interaction and `sqlc` to generate type-safe Go code from SQL queries.
--   **Robust Routing**: Employs `chi` for lightweight and powerful HTTP routing and middleware.
--   **Graceful Shutdown**: Implements graceful server shutdown to handle in-flight requests.
--   **Optimistic Locking**: The product service uses a version field for optimistic concurrency control on product updates.
--   **Dockerized Environment**: Includes a `docker-compose.yml` for easy setup of a PostgreSQL database.
--   **Testing**: Comprehensive unit tests with mocks for service and handler layers.
--   **pprof Server**: Optional `pprof` server for profiling and debugging, configurable via `config.yaml` or environment variables (disabled by default).
--   **Linting**: Integrated with `golangci-lint` and `pre-commit` to ensure code quality.
+-   **RESTful & gRPC APIs**: Provides both a clean RESTful API for external clients and a high-performance gRPC API for internal service-to-service communication.
+-   **Logging**: Uses `slog` for structured, context-aware logging.
+-   **Configuration**: Employs a shared config loader (`koanf`) to read settings from YAML files, `.env`, and environment variables.
+-   **Database Layer**: Integrates with PostgreSQL using `pgx` (driver), `sqlc` (type-safe code generation), and `golang-migrate` (schema migrations).
+-   **Project Structure**: Adheres to Go's standard project layout, with a clean separation of concerns.
+-   **Dockerized Environment**: Includes a `docker-compose.yml` for easy local setup of the service and its PostgreSQL database.
+-   **Graceful Shutdown**: Implements graceful server shutdown for both HTTP and gRPC servers to handle in-flight requests.
+-   **Testing**:
+    -   Unit tests with mocks (`testify/mock`).
+    -   Integration tests against a real database using `testcontainers-go`.
+    -   End-to-end (E2E) tests for the public API.
+-   **Profiling Ready**: Optional `pprof` server for performance analysis, configurable and disabled by default.
+-   **Code Quality**: Enforced via `golangci-lint` and `pre-commit` hooks.
 
 ## Prerequisites
 
@@ -31,24 +32,23 @@ This repository will host multiple services, such as `product`, `order`, `notifi
 
 ## Getting Started
 
-The following instructions are for the `product_service`. The primary way to run the services is with Docker Compose.
+The following instructions are for running the `product_service`.
 
-### 1. Clone the repository
+### 1. Clone the Repository
 
 ```sh
 git clone https://github.com/abgdnv/gocommerce.git
 cd gocommerce
 ```
 
-### 2. Configure the application
+### 2. Configure the Environment
 
 Create a `.env` file from the example. This file holds the configuration for Docker Compose and the services.
 
 ```sh
 cp example.env .env
 ```
-
-You can modify `.env` if you need to change ports or credentials.
+*You can modify `.env` if you need to change ports or credentials.*
 
 ### 3. Run with Docker Compose
 
@@ -57,18 +57,17 @@ Build and start the services in detached mode:
 ```sh
 docker-compose up --build -d
 ```
-
-This command starts both the `product_service` and its PostgreSQL database.
+*This command starts both the `product_service` and its PostgreSQL database.*
 
 ### 4. Run Database Migrations
 
 With the database container running, apply the migrations. You'll need `golang-migrate` installed locally.
 
 ```sh
-migrate -path internal/product/migrations -database "postgres://postgres:postgres@localhost:5432/gocommerce?sslmode=disable" up
+migrate -path internal/product/store/migrations -database "postgres://user:password@localhost:5432/products_db?sslmode=disable" up
 ```
 
-The connection string should match the values in your `.env` file. The service should now be running and accessible.
+*The connection string should match the values in your `.env` file. The service should now be running and accessible.*
 
 ---
 
@@ -88,37 +87,17 @@ For local development, you might want to run the Go application directly on your
 
 ### Configuration
 
-The application is configured using `koanf` with the following precedence:
-1. Environment variables (e.g., `PRODUCT_SVC_SERVER_PORT`)
-2. `.env` file
-3. `config.yaml` file
+The application is configured with the following precedence:
+1.  **Environment variables** (prefixed with `PRODUCT_SVC_`, e.g., `PRODUCT_SVC_SERVER_PORT=8081`).
+2.  **`.env` file**.
+3.  **`configs/product_service.yaml`** file.
 
-An example `config.yaml` might look like this:
-
-```yaml
-# config.yaml
-server:
-  port: 8080
-  maxHeaderBytes: 1048576 # 1MB
-  timeout:
-    read: 5s
-    write: 10s
-    idle: 120s
-    readHeader: 5s
-database:
-  url: "postgresql://postgres:postgres@localhost:5432/gocommerce?sslmode=disable"
-log:
-  level: "info"
-pprof:
-  enabled: false
-  addr: "localhost:6060"
-```
+All configuration options are defined in the `internal/product/config/config.go` struct and validated on startup.
 
 #### Configuration Parameters
 
-The following parameters can be set in `config.yaml` or via environment variables (which take precedence). The application does not have built-in default values, so these parameters must be configured. See the example `config.yaml` above for typical values.
+The following parameters can be set in `configs/product_service.yaml` or via environment variables (which take precedence). The application does not have built-in default values, so these parameters must be configured.
 
-Environment variables are mapped to configuration keys (e.g., `SERVER_PORT` maps to `server.port`). To avoid conflicts with other applications, variables can be prefixed with `PRODUCT_SVC_` (e.g., `PRODUCT_SVC_SERVER_PORT`). Both prefixed and non-prefixed variables are supported, but the prefixed version is recommended.
 
 | Parameter                   | Environment Variable                    | Description                                                                           |
 |:----------------------------|:----------------------------------------|:--------------------------------------------------------------------------------------|
@@ -132,9 +111,12 @@ Environment variables are mapped to configuration keys (e.g., `SERVER_PORT` maps
 | `log.level`                 | `PRODUCT_SVC_LOG_LEVEL`                 | The logging level. Can be `debug`, `info`, `warn`, `error`.                           |
 | `pprof.enabled`             | `PRODUCT_SVC_PPROF_ENABLED`             | Enables or disables the `pprof` server.                                               |
 | `pprof.addr`                | `PRODUCT_SVC_PPROF_ADDR`                | The address for the `pprof` server to listen on (e.g., `localhost:6060`).             |
+| `grpc.port`                 | `PRODUCT_SVC_GRPC_PORT`                 | The port for the gRPC server to listen on.                                            |
+| `grpc.reflection`           | `PRODUCT_SVC_GRPC_REFLECTION`           | Enables gRPC reflection.                                                              |
 
-### Product Service API Endpoints
-The API is versioned under /api/v1.
+### API Endpoints (Product Service)
+
+#### REST API
 
 | Method | Endpoint                    | Description                                  |
 |:-------|:----------------------------|:---------------------------------------------|
@@ -145,6 +127,18 @@ The API is versioned under /api/v1.
 | PUT    | /api/v1/products/{id}       | Update a product's details.                  |
 | DELETE | /api/v1/products/{id}       | Delete a product by its UUID.                |
 | PUT    | /api/v1/products/{id}/stock | Update only the stock quantity of a product. |
+
+#### gRPC API
+
+The service exposes a gRPC API for internal communication. You can interact with it using `grpcurl`.
+
+```sh
+# List available gRPC services
+grpcurl -plaintext localhost:50051 list
+
+# Call the GetProduct method
+grpcurl -plaintext -d '{"id": "<id>"}' localhost:50051 product.v1.ProductService/GetProduct
+```
 
 ### pprof Server
 
@@ -161,10 +155,13 @@ For more information on `pprof`, see the [official documentation](https://pkg.go
 
 ## Testing
 
-### Test Types
-- **Unit Tests**: Located alongside the code they test. They are self-contained and mock any external dependencies.
-- **Integration Tests** (`internal/product/store`): Test the database layer against a real PostgreSQL instance running in a Docker container.
-- **E2E Tests** (`internal/tests/e2e`): Test the full application stack by making HTTP requests to the service, which interacts with a test database.
+The project includes a multi-layered testing strategy. You can run all tests with:
+```sh
+go test -v ./...
+```
+-   **Unit Tests**: Located alongside the code (`*_test.go`).
+-   **Integration Tests**: Found in `internal/product/store/store_integration_test.go`, use `testcontainers-go` to spin up a real PostgreSQL container for testing the database layer.
+-   **E2E Tests**: Found in `internal/product/tests/e2e/`, test the full application by making HTTP requests.
 
 ### Skipping Tests
 You can skip integration or E2E tests by setting environment variables. This is useful for running only unit tests in environments without Docker.
@@ -179,11 +176,21 @@ You can skip integration or E2E tests by setting environment variables. This is 
   ```
 
 ## Tooling
-### Code Generation
-This project uses sqlc to generate type-safe Go code for database interactions. If you modify any SQL queries (e.g., in `internal/product/queries`), you must regenerate the Go code. This may need to be done on a per-service basis.
+
+### Code Generation (`sqlc`)
+
+If you modify any SQL queries in `internal/product/store/queries/`, you must regenerate the Go code.
 
 ```sh
-sqlc generate
+ make sqlc.gen
+ ```
+
+### Code Generation (gRPC - Protocol Buffers)
+
+If you change anything in `proto/product/v1/product.proto`, run the following command from the project root:
+
+```sh
+make proto.gen
 ```
 
 ### Linting
@@ -211,7 +218,7 @@ This project uses [pre-commit](https://pre-commit.com/) for managing git hooks. 
     pre-commit install
     ```
 
-Now `pre-commit` will run automatically on `git commit`. You can also run it manually on all files:
+Now, hooks will run automatically on `git commit`. To run them manually:
 ```sh
 pre-commit run --all-files
 ```

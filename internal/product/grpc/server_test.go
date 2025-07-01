@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
+	pb "github.com/abgdnv/gocommerce/gen/go/product/v1"
 	perrors "github.com/abgdnv/gocommerce/internal/product/errors"
 	"github.com/abgdnv/gocommerce/internal/product/service"
-	pb "github.com/abgdnv/gocommerce/product/v1"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
