@@ -13,3 +13,6 @@ log:
 pprof:
   enabled: false
   addr: "localhost:6060"
+grpc:
+  port: 50051
+  reflection: false

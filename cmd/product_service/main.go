@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	_ "net/http/pprof"
@@ -17,112 +19,141 @@ import (
 	"github.com/abgdnv/gocommerce/internal/config"
 	"github.com/abgdnv/gocommerce/internal/product/app"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 )
 
 func main() {
-	// Load configuration
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx); err != nil {
+		log.Printf("application run failed: %v", err)
+		os.Exit(1)
+	}
+	log.Println("application stopped gracefully")
+}
+
+// run initializes the application, sets up the database connection, and starts the HTTP, gRPC and pprof servers.
+func run(ctx context.Context) error {
 	cfg, cfgErr := config.Load()
 	if cfgErr != nil {
-		log.Fatalf("Error loading configuration: %v", cfgErr)
+		return fmt.Errorf("failed to load configuration: %w", cfgErr)
 	}
 	log.Printf("Configuration loaded: %v", cfg)
 
-	// Set up structured logging
-	logLevel, logger := newLogger(cfg)
-	logger.Info("Product service starting...", "config_log_level", cfg.Log.Level, "actual_slog_level", logLevel.String())
+	logger := newLogger(cfg.Log.Level)
+	slog.SetDefault(logger)
 
-	// Set up pprof server for profiling
-	if cfg.PProf.Enabled {
-		go pprofServer(cfg.PProf.Addr, logger)
-	} else {
-		logger.Info("Pprof server is disabled")
+	dbPool, err := newDbPool(ctx, cfg.Database.URL)
+	if err != nil {
+		return fmt.Errorf("failed to create database connection pool: %w", err)
 	}
-
-	// Create context with timeout for database connection
-	poolCtx, poolCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer poolCancel()
-
-	// Create a new database connection pool
-	dbPool := newDbPool(poolCtx, cfg, logger)
 	defer dbPool.Close()
-	// Ping the database to ensure the connection is established (fail early if not)
-	if err := dbPool.Ping(poolCtx); err != nil {
-		logger.Error("Unable to ping database", "error", err)
-		os.Exit(1)
-	}
 	logger.Info("Successfully connected to the database!")
 
-	mux, err := app.SetupApplication(cfg, dbPool, logger)
-	if err != nil {
-		logger.Error("Error setting up application", "error", err)
-		os.Exit(1)
-	}
+	httpServer, pprofServer, grpcServer := setupServers(dbPool, logger, cfg)
 
-	server := &http.Server{
-		Addr:              fmt.Sprintf(":%d", cfg.HTTPServer.Port),
-		Handler:           mux,
-		ReadTimeout:       cfg.HTTPServer.Timeout.Read,
-		WriteTimeout:      cfg.HTTPServer.Timeout.Write,
-		IdleTimeout:       cfg.HTTPServer.Timeout.Idle,
-		ReadHeaderTimeout: cfg.HTTPServer.Timeout.ReadHeader,
-		MaxHeaderBytes:    cfg.HTTPServer.MaxHeaderBytes,
-	}
+	g, gCtx := errgroup.WithContext(ctx)
 
-	// Graceful shutdown handling
-	idleConnectionsClosed := make(chan struct{})
-	go func() {
-		sigint := make(chan os.Signal, 1)
-		signal.Notify(sigint, os.Interrupt)
-		<-sigint
-		logger.Info("Server is shutting down")
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		if err := server.Shutdown(ctx); err != nil {
-			logger.Error("HTTP server Shutdown", "error", err)
+	// Start the HTTP server
+	g.Go(func() error {
+		logger.Info("HTTP server listening", slog.String("addr", httpServer.Addr))
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("http server failed: %w", err)
 		}
-		close(idleConnectionsClosed)
-	}()
+		return nil
+	})
+	// gracefully shutdown HTTP server on context cancellation
+	g.Go(func() error {
+		<-gCtx.Done()
+		logger.Info("Shutting down HTTP server...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return httpServer.Shutdown(shutdownCtx)
+	})
 
-	logger.Info("Starting server", "address", server.Addr)
+	// Start the gRPC server
+	g.Go(func() error {
+		grpcAddr := ":" + cfg.GRPC.Port
+		lis, err := net.Listen("tcp", grpcAddr)
+		if err != nil {
+			return fmt.Errorf("failed to listen on gRPC port: %w", err)
+		}
+		logger.Info("gRPC server listening", slog.String("addr", grpcAddr))
+		return grpcServer.Serve(lis)
+	})
+	// gracefully shutdown gRPC server on context cancellation
+	g.Go(func() error {
+		<-gCtx.Done()
+		logger.Info("Shutting down gRPC server...")
+		grpcServer.GracefulStop()
+		return nil
+	})
 
-	err = server.ListenAndServe()
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logger.Error("Server failed to start", "error", err)
-		os.Exit(1)
+	// Start the pprof server if enabled
+	if cfg.PProf.Enabled {
+		g.Go(func() error {
+			logger.Info("Pprof server listening", slog.String("addr", pprofServer.Addr))
+			if err := pprofServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				return fmt.Errorf("pprof server failed: %w", err)
+			}
+			return nil
+		})
+		// gracefully shutdown pprof server on context cancellation
+		g.Go(func() error {
+			<-gCtx.Done()
+			logger.Info("Shutting down pprof server...")
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			return pprofServer.Shutdown(shutdownCtx)
+		})
 	}
-	// Wait for the server to shut down gracefully
-	<-idleConnectionsClosed
+	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+		return fmt.Errorf("errgroup encountered an error: %w", err)
+	}
+	return nil
 }
 
-func newLogger(cfg *config.Config) (slog.Level, *slog.Logger) {
-	logLevel := toLevel(cfg.Log.Level)
+// setupServers initializes the HTTP, pprof, and gRPC servers with the provided database pool, logger, and configuration.
+func setupServers(dbPool *pgxpool.Pool, logger *slog.Logger, cfg *config.Config) (*http.Server, *http.Server, *grpc.Server) {
+	deps := app.SetupDependencies(dbPool, logger)
+	httpServer := app.SetupHttpServer(deps, cfg)
+	grpcServer := app.SetupGrpcServer(deps, cfg.GRPC.ReflectionEnabled)
+	pprofServer := &http.Server{
+		Addr: cfg.PProf.Addr,
+	}
+	return httpServer, pprofServer, grpcServer
+}
+
+// newLogger creates a new slog.Logger instance with the specified log level.
+func newLogger(level string) *slog.Logger {
+	logLevel := toLevel(level)
 	loggerOpts := &slog.HandlerOptions{
 		AddSource: logLevel == slog.LevelDebug,
 		Level:     logLevel,
 	}
 	logHandler := slog.NewJSONHandler(os.Stdout, loggerOpts)
 	logger := slog.New(logHandler)
-	return logLevel, logger
-}
-
-// pprofServer starts a pprof server for profiling the application.
-func pprofServer(pprofListenAddr string, logger *slog.Logger) {
-	logger.Info("Starting pprof server", "address", pprofListenAddr)
-	// http.ListenAndServe will use the http.DefaultServeMux, which includes pprof handlers
-	if err := http.ListenAndServe(pprofListenAddr, nil); err != nil {
-		logger.Error("Pprof server failed to start", "error", err)
-	}
+	return logger
 }
 
 // newDbPool creates a new database connection pool with the provided context and configuration,
-// logs an error and exits the application if the pool cannot be created.
-func newDbPool(poolCtx context.Context, cfg *config.Config, logger *slog.Logger) *pgxpool.Pool {
-	dbPool, errPool := pgxpool.New(poolCtx, cfg.Database.URL)
+func newDbPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
+	// Create context with timeout for database connection
+	poolCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	dbPool, errPool := pgxpool.New(poolCtx, url)
 	if errPool != nil {
-		logger.Error("Unable to create connection pool", "error", errPool)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to create database connection pool: %w", errPool)
 	}
-	return dbPool
+	// Ping the database to ensure the connection is established (fail early if not)
+	if err := dbPool.Ping(poolCtx); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+	return dbPool, nil
 }
 
 // toLevel converts a string representation of a log level to slog.Level.

@@ -39,10 +39,17 @@ type Config struct {
 		Enabled bool   `koanf:"enabled"`
 		Addr    string `koanf:"addr"`
 	} `koanf:"pprof"`
+
+	GRPC struct {
+		Port              string `koanf:"port"`
+		ReflectionEnabled bool   `koanf:"reflection"`
+	} `koanf:"grpc"`
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("server.port=%d, server.maxHeaderBytes=%d , server.timeout.read=%v, server.timeout.write=%v, server.timeout.idle=%v, server.timeout.readHeader=%v, database_url=%v, log_level= %s, pprof_enabled=%t, pprof_address=%s",
+	return fmt.Sprintf("\n server.port = %d\n server.maxHeaderBytes = %d\n server.timeout.read = %v\n server.timeout.write = %v\n"+
+		" server.timeout.idle = %v\n server.timeout.readHeader = %v\n database_url = %s\n log_level = %s\n pprof_enabled = %t\n"+
+		" pprof_address = %s\n grpc_port=%s\n reflection_enabled = %t",
 		c.HTTPServer.Port,
 		c.HTTPServer.MaxHeaderBytes,
 		c.HTTPServer.Timeout.Read,
@@ -53,6 +60,8 @@ func (c Config) String() string {
 		c.Log.Level,
 		c.PProf.Enabled,
 		c.PProf.Addr,
+		c.GRPC.Port,
+		c.GRPC.ReflectionEnabled,
 	)
 }
 
@@ -141,6 +150,12 @@ func validateConfig(cfg Config) error {
 	}
 	if !isValidPostgresURL(cfg.Database.URL) {
 		return fmt.Errorf("database URL must start with 'postgres://': %s", cfg.Database.URL)
+	}
+	if cfg.PProf.Enabled && cfg.PProf.Addr == "" {
+		return fmt.Errorf("pprof is enabled but address is not configured")
+	}
+	if cfg.GRPC.Port == "" {
+		return fmt.Errorf("gRPC port is not configured")
 	}
 	return nil
 }

@@ -30,7 +30,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/abgdnv/gocommerce/internal/config"
 	"github.com/abgdnv/gocommerce/internal/product/app"
 	"github.com/abgdnv/gocommerce/internal/product/service"
 	"github.com/golang-migrate/migrate/v4"
@@ -58,26 +57,8 @@ type ProductServiceE2ESuite struct {
 	dbPool      *pgxpool.Pool               // PostgreSQL connection pool for E2E tests
 	server      *httptest.Server            // HTTP server for the ProductService application
 	httpClient  *http.Client                // HTTP client for making requests to the server
-	appCfg      *config.Config              // Application configuration for tests
 	logger      *slog.Logger                // Logger for the test suite
 	ctx         context.Context             // Context for the test suite, used for cancellation and timeouts
-}
-
-// testConfig creates a configuration for the ProductService application (only HTTPServer settings).
-func testConfig() *config.Config {
-	var cfg config.Config
-
-	// HTTPServer settings
-	cfg.HTTPServer.Port = 0                 // httptest.Server will assign a random port
-	cfg.HTTPServer.MaxHeaderBytes = 1 << 20 // 1 MB
-	// Set timeouts for the HTTP server (increased for E2E tests debugging)
-	cfg.HTTPServer.Timeout.Read = 10 * time.Minute
-	cfg.HTTPServer.Timeout.Write = 10 * time.Minute
-	cfg.HTTPServer.Timeout.Idle = 60 * time.Minute
-	cfg.HTTPServer.Timeout.ReadHeader = 5 * time.Minute
-
-	return &cfg
-
 }
 
 // SetupSuite initializes the test suite by setting up the PostgreSQL container, database connection, and application configuration.
@@ -144,12 +125,9 @@ func (s *ProductServiceE2ESuite) SetupSuite() {
 	}
 	s.logger.Info("Migrations applied for E2E tests")
 
-	// 5. Create the application configuration for tests
-	s.appCfg = testConfig()
-
-	// 6. Set up the application configuration
-	appHandler, err := app.SetupApplication(s.appCfg, s.dbPool, s.logger)
-	require.NoError(s.T(), err, "Failed to setup application for E2E")
+	// 5. Set up the application configuration
+	deps := app.SetupDependencies(s.dbPool, s.logger)
+	appHandler := app.SetupHttpHandler(deps)
 
 	s.server = httptest.NewServer(appHandler)
 	s.httpClient = s.server.Client() // Use the httptest server's client for requests
