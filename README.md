@@ -57,17 +57,7 @@ Build and start the services in detached mode:
 ```sh
 docker-compose up --build -d
 ```
-*This command starts both the `product_service` and its PostgreSQL database.*
-
-### 4. Run Database Migrations
-
-With the database container running, apply the migrations. You'll need `golang-migrate` installed locally.
-
-```sh
-migrate -path internal/product/store/migrations -database "postgres://user:password@localhost:5432/products_db?sslmode=disable" up
-```
-
-*The connection string should match the values in your `.env` file. The service should now be running and accessible.*
+*This command starts both the `product_service` and its PostgreSQL database. All databases are created on the first start of the database container, and migrations are applied automatically every time the stack is started.*
 
 ---
 
@@ -79,7 +69,12 @@ For local development, you might want to run the Go application directly on your
     ```sh
     docker-compose up -d db
     ```
-2.  **Run migrations:** (same command as above)
+2.  **Run migrations:**
+
+    You'll need `golang-migrate` installed locally. Don't forget to create database if it doesn't exist.
+    ```sh
+    migrate -path internal/product/store/migrations -database "postgres://<user>:<password>@<databaseb host>:5432/<database>?sslmode=disable" up
+    ```
 3.  **Run the application:**
     ```sh
     go run ./cmd/product_service/
