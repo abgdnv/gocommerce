@@ -9,50 +9,56 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/abgdnv/gocommerce/internal/platform/contextkeys"
 	producterrors "github.com/abgdnv/gocommerce/internal/product/errors"
 	"github.com/abgdnv/gocommerce/internal/product/service"
+	"github.com/abgdnv/gocommerce/pkg/web"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
 
-// ProductAPI defines HTTP handlers for product-related endpoints.
-type ProductAPI interface {
-	FindByID(w http.ResponseWriter, r *http.Request)
-	FindAll(w http.ResponseWriter, r *http.Request)
-	Create(w http.ResponseWriter, r *http.Request)
-	Update(w http.ResponseWriter, r *http.Request)
-	UpdateStock(w http.ResponseWriter, r *http.Request)
-	DeleteByID(w http.ResponseWriter, r *http.Request)
-
-	HealthCheck(w http.ResponseWriter, r *http.Request)
-}
-
-type api struct {
+type Handler struct {
 	service  service.ProductService
 	validate *validator.Validate
 	logger   *slog.Logger
 }
 
-// NewAPI creates a new instance of ProductAPI with the provided service.
-func NewAPI(service service.ProductService, logger *slog.Logger) ProductAPI {
-	return &api{
+// NewHandler creates a new instance of ProductAPI with the provided service.
+func NewHandler(service service.ProductService, logger *slog.Logger) *Handler {
+	return &Handler{
 		service:  service,
 		validate: validator.New(),
-		logger:   logger.With("component", "api"),
+		logger:   logger.With("component", "handler"),
 	}
 }
 
+// RegisterRoutes registers the HTTP routes for the product service.
+func (h *Handler) RegisterRoutes(r *chi.Mux) {
+	r.Route("/api/v1/products", func(r chi.Router) {
+		r.Get("/", h.FindAll)
+		r.Post("/", h.Create)
+
+		r.Route("/{id}", func(r chi.Router) {
+			r.Get("/", h.FindByID)
+			r.Delete("/", h.DeleteByID)
+			r.Put("/", h.Update)
+			r.Put("/stock", h.UpdateStock)
+		})
+	})
+
+	r.Get("/healthz", h.HealthCheck)
+}
+
 // FindByID retrieves a product by its ID.
-func (a *api) FindByID(w http.ResponseWriter, r *http.Request) {
-	mLogger := loggerWithReqID(r, a)
+func (h *Handler) FindByID(w http.ResponseWriter, r *http.Request) {
+	mLogger := h.loggerWithReqID(r)
 	id, ok := parseID(w, r, mLogger)
 	if !ok {
 		return
 	}
 
 	mLogger.DebugContext(r.Context(), "Received request to find product by ID", "ID", id)
-	found, err := a.service.FindByID(r.Context(), id)
+	found, err := h.service.FindByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, producterrors.ErrProductNotFound) {
 			mLogger.WarnContext(r.Context(), "Product not found", "ID", id)
@@ -69,8 +75,8 @@ func (a *api) FindByID(w http.ResponseWriter, r *http.Request) {
 }
 
 // FindAll retrieves a list of all products.
-func (a *api) FindAll(w http.ResponseWriter, r *http.Request) {
-	mLogger := loggerWithReqID(r, a)
+func (h *Handler) FindAll(w http.ResponseWriter, r *http.Request) {
+	mLogger := h.loggerWithReqID(r)
 	limit, ok := parseValidate(r, w, mLogger, "limit", gt(0))
 	if !ok {
 		return
@@ -80,7 +86,7 @@ func (a *api) FindAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	mLogger.DebugContext(r.Context(), "Received request to find all products", "limit", limit, "offset", offset)
-	list, err := a.service.FindAll(r.Context(), offset, limit)
+	list, err := h.service.FindAll(r.Context(), offset, limit)
 	if err != nil {
 		mLogger.ErrorContext(r.Context(), "Error retrieving product list", "error", err)
 		respondError(w, mLogger, http.StatusInternalServerError, "Failed to fetch products")
@@ -91,8 +97,8 @@ func (a *api) FindAll(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create handles the creation of a new product.
-func (a *api) Create(w http.ResponseWriter, r *http.Request) {
-	mLogger := loggerWithReqID(r, a)
+func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
+	mLogger := h.loggerWithReqID(r)
 	var productCreateDto service.ProductCreateDto
 	if err := json.NewDecoder(r.Body).Decode(&productCreateDto); err != nil {
 		mLogger.ErrorContext(r.Context(), "Error decoding request body", "error", err)
@@ -100,7 +106,7 @@ func (a *api) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	mLogger.DebugContext(r.Context(), "Received request to create product", "product", productCreateDto)
-	if err := a.validate.Struct(productCreateDto); err != nil {
+	if err := h.validate.Struct(productCreateDto); err != nil {
 		var validationErrors validator.ValidationErrors
 		if errors.As(err, &validationErrors) {
 			// If the error is a validation error, we can extract field-specific errors.
@@ -119,7 +125,7 @@ func (a *api) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newProduct, err := a.service.Create(r.Context(), productCreateDto)
+	newProduct, err := h.service.Create(r.Context(), productCreateDto)
 	if err != nil {
 		mLogger.ErrorContext(r.Context(), "Error creating product", "error", err)
 		respondError(w, mLogger, http.StatusInternalServerError, "Failed to create product")
@@ -129,8 +135,8 @@ func (a *api) Create(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, mLogger, http.StatusCreated, newProduct)
 }
 
-func (a *api) Update(w http.ResponseWriter, r *http.Request) {
-	mLogger := loggerWithReqID(r, a)
+func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
+	mLogger := h.loggerWithReqID(r)
 	id, ok := parseID(w, r, mLogger)
 	if !ok {
 		return
@@ -143,7 +149,7 @@ func (a *api) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := a.validate.Struct(productDTO); err != nil {
+	if err := h.validate.Struct(productDTO); err != nil {
 		var validationErrors validator.ValidationErrors
 		if errors.As(err, &validationErrors) {
 			errorResponse := make(map[string]string)
@@ -161,7 +167,7 @@ func (a *api) Update(w http.ResponseWriter, r *http.Request) {
 
 	productDTO.ID = id.String()
 
-	updated, err := a.service.Update(r.Context(), productDTO)
+	updated, err := h.service.Update(r.Context(), productDTO)
 	if err != nil {
 		if errors.Is(err, producterrors.ErrProductNotFound) {
 			mLogger.WarnContext(r.Context(), "Product not found for update", "ID", id)
@@ -176,8 +182,8 @@ func (a *api) Update(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, mLogger, http.StatusOK, updated)
 }
 
-func (a *api) UpdateStock(w http.ResponseWriter, r *http.Request) {
-	mLogger := loggerWithReqID(r, a)
+func (h *Handler) UpdateStock(w http.ResponseWriter, r *http.Request) {
+	mLogger := h.loggerWithReqID(r)
 	id, ok := parseID(w, r, mLogger)
 	if !ok {
 		return
@@ -190,7 +196,7 @@ func (a *api) UpdateStock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := a.validate.Struct(stockUpdateDTO); err != nil {
+	if err := h.validate.Struct(stockUpdateDTO); err != nil {
 		var validationErrors validator.ValidationErrors
 		if errors.As(err, &validationErrors) {
 			errorResponse := make(map[string]string)
@@ -206,7 +212,7 @@ func (a *api) UpdateStock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := a.service.UpdateStock(r.Context(), id, stockUpdateDTO.Stock, stockUpdateDTO.Version)
+	updated, err := h.service.UpdateStock(r.Context(), id, stockUpdateDTO.Stock, stockUpdateDTO.Version)
 	if err != nil {
 		if errors.Is(err, producterrors.ErrProductNotFound) {
 			mLogger.WarnContext(r.Context(), "Product not found for stock update", "ID", id)
@@ -222,8 +228,8 @@ func (a *api) UpdateStock(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteByID deletes a product by its ID.
-func (a *api) DeleteByID(w http.ResponseWriter, r *http.Request) {
-	mLogger := loggerWithReqID(r, a)
+func (h *Handler) DeleteByID(w http.ResponseWriter, r *http.Request) {
+	mLogger := h.loggerWithReqID(r)
 	id, ok := parseID(w, r, mLogger)
 	if !ok {
 		return
@@ -233,7 +239,7 @@ func (a *api) DeleteByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	mLogger.DebugContext(r.Context(), "Received request to delete product", "ID", id, "Version", version)
-	if err := a.service.DeleteByID(r.Context(), id, version); err != nil {
+	if err := h.service.DeleteByID(r.Context(), id, version); err != nil {
 		if errors.Is(err, producterrors.ErrProductNotFound) {
 			mLogger.WarnContext(r.Context(), "Product not found for deletion", "ID", id)
 			respondError(w, mLogger, http.StatusNotFound, fmt.Sprintf("Product with ID %s not found", id))
@@ -249,7 +255,7 @@ func (a *api) DeleteByID(w http.ResponseWriter, r *http.Request) {
 }
 
 // HealthCheck is a simple health check endpoint.
-func (a *api) HealthCheck(w http.ResponseWriter, _ *http.Request) {
+func (h *Handler) HealthCheck(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -301,12 +307,12 @@ func parseValidate(r *http.Request, w http.ResponseWriter, logger *slog.Logger, 
 }
 
 // loggerWithReqID creates a logger with the request ID from the context.
-func loggerWithReqID(r *http.Request, a *api) *slog.Logger {
-	reqID, found := contextkeys.GetRequestID(r.Context())
+func (h *Handler) loggerWithReqID(r *http.Request) *slog.Logger {
+	reqID, found := web.GetRequestID(r.Context())
 	if !found {
 		reqID = "unknown"
 	}
-	return a.logger.With("request_id", reqID)
+	return h.logger.With("request_id", reqID)
 }
 
 // ParamValidator is a function type that validates a parameter.

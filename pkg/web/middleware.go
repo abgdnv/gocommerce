@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/abgdnv/gocommerce/internal/platform/contextkeys"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 )
@@ -17,7 +16,7 @@ func RequestIDInjector(next http.Handler) http.Handler {
 		if reqID == "" {
 			reqID = uuid.NewString()
 		}
-		ctx := contextkeys.WithRequestID(r.Context(), reqID)
+		ctx := WithRequestID(r.Context(), reqID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

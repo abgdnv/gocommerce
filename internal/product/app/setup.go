@@ -2,21 +2,19 @@
 package app
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 
 	pb "github.com/abgdnv/gocommerce/gen/go/product/v1"
-	"github.com/abgdnv/gocommerce/internal/platform/web"
 	"github.com/abgdnv/gocommerce/internal/product/config"
 	grpcImpl "github.com/abgdnv/gocommerce/internal/product/grpc"
 	"github.com/abgdnv/gocommerce/internal/product/handler"
 	"github.com/abgdnv/gocommerce/internal/product/service"
 	"github.com/abgdnv/gocommerce/internal/product/store"
+	"github.com/abgdnv/gocommerce/pkg/server"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 type Dependencies struct {
@@ -36,52 +34,41 @@ func SetupDependencies(dbPool *pgxpool.Pool, logger *slog.Logger) *Dependencies 
 // SetupHttpHandler initializes the HTTP server and routes for the ProductService application.
 // Used by E2E tests to set up the HTTP server with the necessary routes and middleware.
 func SetupHttpHandler(deps *Dependencies) http.Handler {
-
-	pApi := handler.NewAPI(deps.ProductService, deps.Logger)
-
-	mux := chi.NewRouter()
-	mux.Use(web.RequestIDInjector)
-	mux.Use(web.StructuredLogger(deps.Logger))
-	mux.Use(web.Recoverer(deps.Logger))
-
-	mux.Route("/api/v1/products", func(r chi.Router) {
-		r.Get("/", pApi.FindAll)
-		r.Post("/", pApi.Create)
-
-		r.Route("/{id}", func(r chi.Router) {
-			r.Get("/", pApi.FindByID)
-			r.Delete("/", pApi.DeleteByID)
-			r.Put("/", pApi.Update)
-			r.Put("/stock", pApi.UpdateStock)
-		})
-	})
-
-	mux.Get("/healthz", pApi.HealthCheck)
-
+	mux := server.NewChiRouter(deps.Logger)
+	wireRoutes(mux, deps)
 	return mux
+}
+
+// wireRoutes sets up the HTTP routes for the ProductService application.
+func wireRoutes(mux *chi.Mux, deps *Dependencies) {
+	productHandler := handler.NewHandler(deps.ProductService, deps.Logger)
+	productHandler.RegisterRoutes(mux)
 }
 
 // SetupHttpServer creates and configures an HTTP server for the ProductService application.
 func SetupHttpServer(deps *Dependencies, cfg *config.Config) *http.Server {
+
 	mux := SetupHttpHandler(deps)
-	server := &http.Server{
-		Addr:              fmt.Sprintf(":%d", cfg.HTTPServer.Port),
-		Handler:           mux,
-		ReadTimeout:       cfg.HTTPServer.Timeout.Read,
-		WriteTimeout:      cfg.HTTPServer.Timeout.Write,
-		IdleTimeout:       cfg.HTTPServer.Timeout.Idle,
-		ReadHeaderTimeout: cfg.HTTPServer.Timeout.ReadHeader,
-		MaxHeaderBytes:    cfg.HTTPServer.MaxHeaderBytes,
+
+	httpCfg := server.HTTPConfig{
+		Port:           cfg.HTTPServer.Port,
+		MaxHeaderBytes: cfg.HTTPServer.MaxHeaderBytes,
+		ReadTimeout:    cfg.HTTPServer.Timeout.Read,
+		WriteTimeout:   cfg.HTTPServer.Timeout.Write,
+		IdleTimeout:    cfg.HTTPServer.Timeout.Idle,
+		ReadHeader:     cfg.HTTPServer.Timeout.ReadHeader,
 	}
-	return server
+
+	return server.NewHTTPServer(httpCfg, mux)
 }
 
 // SetupGrpcServer initializes the gRPC server for the ProductService application.
 func SetupGrpcServer(deps *Dependencies, reflectionEnabled bool) *grpc.Server {
-	grpcServer := grpc.NewServer()
-	if reflectionEnabled {
-		reflection.Register(grpcServer)
+	// Service registration function for gRPC server
+	productRegisterFunc := func(s *grpc.Server) {
+		productGRPCServer := grpcImpl.NewServer(deps.ProductService)
+		pb.RegisterProductServiceServer(s, productGRPCServer)
 	}
-	pb.RegisterProductServiceServer(grpcServer, grpcImpl.NewServer(deps.ProductService))
-	return grpcServer
+	// create a new gRPC server with reflection if enabled
+	return server.NewGRPCServer(reflectionEnabled, productRegisterFunc)
 }

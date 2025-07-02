@@ -38,14 +38,14 @@ type ProductService interface {
 	DeleteByID(ctx context.Context, id uuid.UUID, version int32) error
 }
 
-// service implements ProductService and provides methods to manage products.
-type service struct {
+// Service implements ProductService and provides methods to manage products.
+type Service struct {
 	repository store.ProductStore
 }
 
 // NewService creates a new instance of ProductService with the provided repository.
-func NewService(repo store.ProductStore) ProductService {
-	return &service{
+func NewService(repo store.ProductStore) *Service {
+	return &Service{
 		repository: repo,
 	}
 }
@@ -75,7 +75,7 @@ type StockUpdateDto struct {
 
 // FindByID retrieves a product by its ID and returns it as a ProductDto.
 // Returns ErrProductNotFound if no product exists with the given ID.
-func (s *service) FindByID(ctx context.Context, id uuid.UUID) (*ProductDto, error) {
+func (s *Service) FindByID(ctx context.Context, id uuid.UUID) (*ProductDto, error) {
 	product, err := s.repository.FindByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch product by ID %s: %w", id, err)
@@ -86,7 +86,7 @@ func (s *service) FindByID(ctx context.Context, id uuid.UUID) (*ProductDto, erro
 
 // FindAll retrieves a list of all products and returns them as ProductDTOs.
 // Returns an empty slice if no products exist or error if the retrieval fails.
-func (s *service) FindAll(ctx context.Context, offset, limit int32) (*[]ProductDto, error) {
+func (s *Service) FindAll(ctx context.Context, offset, limit int32) (*[]ProductDto, error) {
 	products, err := s.repository.FindAll(ctx, offset, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch products: %w", err)
@@ -102,7 +102,7 @@ func (s *service) FindAll(ctx context.Context, offset, limit int32) (*[]ProductD
 
 // Create creates a new product and returns it as a ProductDto.
 // Returns an error if the product cannot be created.
-func (s *service) Create(ctx context.Context, product ProductCreateDto) (*ProductDto, error) {
+func (s *Service) Create(ctx context.Context, product ProductCreateDto) (*ProductDto, error) {
 	p, err := s.repository.Create(ctx, product.Name, product.Price, product.Stock)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create product: %w", err)
@@ -113,7 +113,7 @@ func (s *service) Create(ctx context.Context, product ProductCreateDto) (*Produc
 
 // Update modifies an existing product's details and returns the updated product as a ProductDto.
 // Returns ErrProductNotFound if no product exists with the given ID and version.
-func (s *service) Update(ctx context.Context, product ProductDto) (*ProductDto, error) {
+func (s *Service) Update(ctx context.Context, product ProductDto) (*ProductDto, error) {
 	updated, err := s.repository.Update(
 		ctx,
 		uuid.MustParse(product.ID),
@@ -130,7 +130,7 @@ func (s *service) Update(ctx context.Context, product ProductDto) (*ProductDto, 
 
 // UpdateStock adjusts the stock quantity of a product and returns the updated product as a ProductDto.
 // Returns ErrProductNotFound if no product exists with the given ID and version.
-func (s *service) UpdateStock(ctx context.Context, id uuid.UUID, stock int32, version int32) (*ProductDto, error) {
+func (s *Service) UpdateStock(ctx context.Context, id uuid.UUID, stock int32, version int32) (*ProductDto, error) {
 	product, err := s.repository.UpdateStock(ctx, id, stock, version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update stock for product with ID %s: %w", id, err)
@@ -141,7 +141,7 @@ func (s *service) UpdateStock(ctx context.Context, id uuid.UUID, stock int32, ve
 
 // DeleteByID deletes a product by its ID.
 // Returns ErrProductNotFound if no product exists with the given ID and version.
-func (s *service) DeleteByID(ctx context.Context, id uuid.UUID, version int32) error {
+func (s *Service) DeleteByID(ctx context.Context, id uuid.UUID, version int32) error {
 	return s.repository.DeleteByID(ctx, id, version)
 }
 

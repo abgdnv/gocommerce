@@ -1,5 +1,5 @@
 // Package contextkeys implements context keys for passing values in the context.Context.
-package contextkeys
+package web
 
 import "context"
 
