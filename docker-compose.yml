@@ -10,14 +10,32 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
     networks:
       - ecommerce-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
-      interval: 15s
-      timeout: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 10s
+
+  product_migrator:
+    build:
+      context: .
+      dockerfile: docker/migrator/Dockerfile
+    image: migrator:0.1.0
+    container_name: product-migrator
+    environment:
+      - MIGRATE_PATH=/migrations/product
+      - MIGRATE_DB_URL=${PRODUCT_SVC_DATABASE_URL}
+    volumes:
+      - ./internal/product/store/migrations:/migrations/product
+    networks:
+      - ecommerce-network
+    depends_on:
+      db:
+        condition: service_healthy
 
   product_service:
     build:
@@ -51,6 +69,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      product_migrator:
+        condition: service_completed_successfully
 
 volumes:
   postgres_data:
