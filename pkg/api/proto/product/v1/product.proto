@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package product.v1;
+
+option go_package = "github.com/abgdnv/gocommerce/shared/gen/go/product/v1;product_v1";
+
+service ProductService {
+  rpc GetProduct(GetProductRequest) returns (GetProductResponse);
+}
+
+message GetProductRequest {
+  string id = 1;
+}
+
+message GetProductResponse {
+  Product product = 1;
+}
+
+message Product {
+  string id = 1;
+  string name = 2;
+  int64 price = 3;
+  int32 stock_quantity = 4;
+  int32 version = 5;
+}

@@ -1,5 +1,9 @@
 repos:
-  - repo: https://github.com/golangci/golangci-lint
-    rev: v2.1.6
+  - repo: local
     hooks:
-      - id: golangci-lint
+      - id: golangci-lint-multimodule
+        name: golangci-lint (all modules)
+        entry: make lint
+        language: system
+        files: \.go$
+        pass_filenames: false

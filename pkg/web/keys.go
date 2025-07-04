@@ -1,4 +1,3 @@
-// Package contextkeys implements context keys for passing values in the context.Context.
 package web
 
 import "context"

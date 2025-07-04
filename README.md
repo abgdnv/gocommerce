@@ -52,11 +52,12 @@ cp example.env .env
 
 ### 3. Run with Docker Compose
 
-Build and start the services in detached mode:
+Build and start the services using Docker Compose:
 
 ```sh
-docker-compose up --build -d
+make docker-up
 ```
+
 *This command starts both the `product_service` and its PostgreSQL database. All databases are created on the first start of the database container, and migrations are applied automatically every time the stack is started.*
 
 ---
@@ -77,7 +78,7 @@ For local development, you might want to run the Go application directly on your
     ```
 3.  **Run the application:**
     ```sh
-    go run ./cmd/product_service/
+    go run ./product_service/cmd/
     ```
 
 ### Configuration
@@ -85,16 +86,16 @@ For local development, you might want to run the Go application directly on your
 The application is configured with the following precedence:
 1.  **Environment variables** (prefixed with `PRODUCT_SVC_`, e.g., `PRODUCT_SVC_SERVER_PORT=8081`).
 2.  **`.env` file**.
-3.  **`configs/product_service.yaml`** file.
+3.  **`configs.yaml`** file.
 
 All configuration options are defined in the `internal/product/config/config.go` struct and validated on startup.
 
 #### Configuration Parameters
 
-The following parameters can be set in `configs/product_service.yaml` or via environment variables (which take precedence). The application does not have built-in default values, so these parameters must be configured.
+The application does not have built-in default values, so these parameters must be configured.
 
 
-| Parameter                   | Environment Variable                    | Description                                                                           |
+| Parameter (config.yaml)     | Environment Variable                    | Description                                                                           |
 |:----------------------------|:----------------------------------------|:--------------------------------------------------------------------------------------|
 | `server.port`               | `PRODUCT_SVC_SERVER_PORT`               | The port for the HTTP server to listen on.                                            |
 | `server.maxHeaderBytes`     | `PRODUCT_SVC_SERVER_MAXHEADERBYTES`     | The maximum number of bytes the server will read parsing the request headers.         |
@@ -152,8 +153,13 @@ For more information on `pprof`, see the [official documentation](https://pkg.go
 
 The project includes a multi-layered testing strategy. You can run all tests with:
 ```sh
-go test -v ./...
+make test  # Run tests in all modules
 ```
+or
+```sh
+make testv # Run tests in all modules with verbose output
+```
+
 -   **Unit Tests**: Located alongside the code (`*_test.go`).
 -   **Integration Tests**: Found in `internal/product/store/store_integration_test.go`, use `testcontainers-go` to spin up a real PostgreSQL container for testing the database layer.
 -   **E2E Tests**: Found in `internal/product/tests/e2e/`, test the full application by making HTTP requests.
@@ -163,10 +169,12 @@ You can skip integration or E2E tests by setting environment variables. This is 
 
 - Skip integration tests:
   ```sh
+  cd product_service
   PRODUCT_SVC_SKIP_INTEGRATION_TESTS=1 go test -v ./...
   ```
 - Skip E2E tests:
   ```sh
+  cd product_service
   PRODUCT_SVC_SKIP_E2E_TESTS=1 go test -v ./...
   ```
 
@@ -177,7 +185,7 @@ You can skip integration or E2E tests by setting environment variables. This is 
 If you modify any SQL queries in `internal/product/store/queries/`, you must regenerate the Go code.
 
 ```sh
- make sqlc.gen
+ make sqlc
  ```
 
 ### Code Generation (gRPC - Protocol Buffers)
@@ -185,14 +193,14 @@ If you modify any SQL queries in `internal/product/store/queries/`, you must reg
 If you change anything in `proto/product/v1/product.proto`, run the following command from the project root:
 
 ```sh
-make proto.gen
+make proto
 ```
 
 ### Linting
 The project is configured with golangci-lint. To run the linter:
 
 ```sh
-golangci-lint run
+amke lint # Run linter in all modules
 ```
 
 It is also set up as a pre-commit hook.
