@@ -32,15 +32,15 @@ lint: ## Run linter in all modules
 
 .PHONY: docker-build
 docker-build: ## Build docker images
-	@docker-compose build
+	@docker compose build
 
 .PHONY: docker-up
-docker-up: ## docker-compose up -d
-	@docker-compose up -d
+docker-up: ## docker compose up -d
+	@docker compose up -d
 
 .PHONY: docker-down
-docker-down: ## docker-compose down
-	@docker-compose down
+docker-down: ## docker compose down
+	@docker compose down
 
 .PHONY: test
 test: ## Run tests in all modules

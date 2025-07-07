@@ -180,7 +180,18 @@ You can skip integration or E2E tests by setting environment variables. This is 
 
 ## Tooling
 
+### Generate all code (`sqlc`, Protocol Buffers)
+
+```sh
+make gen
+```
+
 ### Code Generation (`sqlc`)
+
+#### **[install](https://docs.sqlc.dev/en/latest/overview/install.html) `sqlc` CLI:**
+```bash
+go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+```
 
 If you modify any SQL queries in `internal/product/store/queries/`, you must regenerate the Go code.
 
@@ -189,6 +200,12 @@ If you modify any SQL queries in `internal/product/store/queries/`, you must reg
  ```
 
 ### Code Generation (gRPC - Protocol Buffers)
+
+#### **Install protoc**
+```bash
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+```
 
 If you change anything in `proto/product/v1/product.proto`, run the following command from the project root:
 
@@ -200,7 +217,7 @@ make proto
 The project is configured with golangci-lint. To run the linter:
 
 ```sh
-amke lint # Run linter in all modules
+make lint # Run linter in all modules
 ```
 
 It is also set up as a pre-commit hook.
