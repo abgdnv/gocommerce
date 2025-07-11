@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"time"
@@ -8,6 +9,25 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 )
+
+const XUserId = "X-User-Id"
+
+func AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Extract user ID from the request header
+		userID := r.Header.Get(XUserId)
+		if userID == "" {
+			http.Error(w, "Unauthorized: Missing X-User-Id header", http.StatusUnauthorized)
+			return
+		}
+
+		// Create a new context with the user ID
+		ctx := context.WithValue(r.Context(), UserIDKey, userID)
+
+		// Pass the new context to the next handler
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
 
 // RequestIDInjector creates a middleware that injects request id
 func RequestIDInjector(next http.Handler) http.Handler {
@@ -66,4 +86,16 @@ func Recoverer(logger *slog.Logger) func(next http.Handler) http.Handler {
 		}
 		return http.HandlerFunc(fn)
 	}
+}
+
+// WithRequestID adds a request ID to the context.
+func WithRequestID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, requestIDKey, id)
+}
+
+// GetRequestID retrieves the request ID from the context.
+// Returns the request ID and a boolean indicating whether it was found.
+func GetRequestID(ctx context.Context) (string, bool) {
+	id, ok := ctx.Value(requestIDKey).(string)
+	return id, ok
 }

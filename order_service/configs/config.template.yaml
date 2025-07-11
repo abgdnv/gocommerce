@@ -1,0 +1,16 @@
+server:
+  port: 8080
+  maxHeaderBytes: 1048576
+  timeout:
+    read: 10s
+    write: 10s
+    idle: 60s
+    readHeader: 5s
+database:
+  url: "postgresql://user:password@localhost:5432/orders_db?sslmode=disable"
+log:
+  level: info
+pprof:
+  enabled: false
+  addr: "localhost:6060"
+

@@ -20,7 +20,9 @@ proto: ## Generate Go code from Protobuf definitions
 .PHONY: sqlc
 sqlc: ## Generate sqlc code from SQL
 	@sqlc generate -f product_service/internal/store/sqlc.yaml
-	@echo "✅ sqlc code generated"
+	@echo "✅ sqlc code for product service generated"
+	@sqlc generate -f order_service/internal/store/sqlc.yaml
+	@echo "✅ sqlc code for order service generated"
 
 .PHONY: lint
 lint: ## Run linter in all modules

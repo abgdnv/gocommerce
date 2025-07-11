@@ -1,0 +1,56 @@
+@base-url = http://localhost:8082/api/v1
+@user_id = 123e4567-e89b-12d3-a456-426614174000
+
+# Order Service API
+
+//Create a new order
+POST {{base-url}}/orders HTTP/1.1
+X-User-Id: {{user_id}}
+Content-Type: application/json
+
+{
+  "user_id": "123e4567-e89b-12d3-a456-426614174000",
+  "status": "pending",
+  "items": [
+    {
+      "product_id": "123e4567-e89b-12d3-a456-426614174001",
+      "quantity": 1,
+      "price_per_item": 100,
+      "price": 100
+    }
+  ]
+}
+
+> {%
+    client.global.set("orderID", response.body.id);
+%}
+
+###
+
+//Get an order by ID
+GET {{base-url}}/orders/{{orderID}} HTTP/1.1
+X-User-Id: {{user_id}}
+
+
+###
+
+//Get all orders for a user
+GET {{base-url}}/orders?offset=0&limit=100 HTTP/1.1
+X-User-Id: {{user_id}}
+
+###
+
+//Update an order by ID
+PUT {{base-url}}/orders/{{orderID}} HTTP/1.1
+X-User-Id: {{user_id}}
+Content-Type: application/json
+
+{
+  "status": "shipped",
+  "version": 1
+}
+
+###
+
+//health check
+GET {{base-url}}/healthz HTTP/1.1

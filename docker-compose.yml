@@ -21,16 +21,11 @@ services:
       start_period: 10s
 
   product_migrator:
-    build:
-      context: .
-      dockerfile: deploy/images/migrator/Dockerfile
-    image: migrator:0.1.0
+    image: migrate/migrate:4
     container_name: product-migrator
-    environment:
-      - MIGRATE_PATH=/migrations/product
-      - MIGRATE_DB_URL=${PRODUCT_SVC_DATABASE_URL}
+    command: ["-path", "/migrations", "-database", "${PRODUCT_SVC_DATABASE_URL}", "up"]
     volumes:
-      - ./deploy/migrations/product_service:/migrations/product
+      - ./deploy/migrations/product_service:/migrations
     networks:
       - ecommerce-network
     depends_on:
@@ -71,6 +66,52 @@ services:
         condition: service_healthy
       product_migrator:
         condition: service_completed_successfully
+
+  order_migrator:
+    image: migrate/migrate:4
+    container_name: order-migrator
+    command: ["-path", "/migrations", "-database", "${ORDER_SVC_DATABASE_URL}", "up"]
+    volumes:
+      - ./deploy/migrations/order_service:/migrations
+    networks:
+      - ecommerce-network
+    depends_on:
+      db:
+        condition: service_healthy
+
+  order_service:
+    build:
+      context: .
+      dockerfile: order_service/Dockerfile
+      args:
+        ORDER_SVC_DOCKER_IMAGE: ${ORDER_SVC_DOCKER_IMAGE}
+        ORDER_SVC_DOCKER_TAG: ${ORDER_SVC_DOCKER_TAG}
+    image: ${ORDER_SVC_DOCKER_IMAGE}:${ORDER_SVC_DOCKER_TAG}
+    restart: unless-stopped
+    container_name: order-service
+    ports:
+      - "${ORDER_SVC_HOST_PORT}:${ORDER_SVC_SERVER_PORT}"
+      - "${ORDER_SVC_PPROF_HOST_PORT}:${ORDER_SVC_PPROF_PORT}"
+    environment:
+      - ORDER_SVC_SERVER_PORT=${ORDER_SVC_SERVER_PORT}
+      - ORDER_SVC_DATABASE_URL=${ORDER_SVC_DATABASE_URL}
+      - ORDER_SVC_LOG_LEVEL=${ORDER_SVC_LOG_LEVEL}
+      - ORDER_SVC_SERVER_MAXHEADERBYTES=${ORDER_SVC_SERVER_MAXHEADERBYTES}
+      - ORDER_SVC_SERVER_TIMEOUT_READ=${ORDER_SVC_SERVER_TIMEOUT_READ}
+      - ORDER_SVC_SERVER_TIMEOUT_WRITE=${ORDER_SVC_SERVER_TIMEOUT_WRITE}
+      - ORDER_SVC_SERVER_TIMEOUT_IDLE=${ORDER_SVC_SERVER_TIMEOUT_IDLE}
+      - ORDER_SVC_SERVER_TIMEOUT_READHEADER=${ORDER_SVC_SERVER_TIMEOUT_READHEADER}
+      - ORDER_SVC_PPROF_ENABLED=${ORDER_SVC_PPROF_ENABLED}
+      - ORDER_SVC_PPROF_ADDR=${ORDER_SVC_PPROF_ADDR}
+    networks:
+      - ecommerce-network
+    depends_on:
+      db:
+        condition: service_healthy
+      product_migrator:
+        condition: service_completed_successfully
+
+
 
 volumes:
   postgres_data:
