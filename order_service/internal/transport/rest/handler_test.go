@@ -14,9 +14,11 @@ import (
 
 	ordererrors "github.com/abgdnv/gocommerce/order_service/internal/errors"
 	"github.com/abgdnv/gocommerce/order_service/internal/service"
+	pb "github.com/abgdnv/gocommerce/pkg/api/gen/go/product/v1"
 	"github.com/abgdnv/gocommerce/pkg/web"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
 )
 
 // mockOrderService is a mock implementation of the OrderService interface
@@ -52,6 +54,18 @@ func (m *mockOrderService) Update(_ context.Context, _ uuid.UUID, _ service.Orde
 		return nil, m.error
 	}
 	return m.order, nil
+}
+
+type ProductServiceClientMock struct {
+	productResponse *pb.GetProductResponse
+	error           error
+}
+
+func (p ProductServiceClientMock) GetProduct(_ context.Context, _ *pb.GetProductRequest, _ ...grpc.CallOption) (*pb.GetProductResponse, error) {
+	if p.error != nil {
+		return nil, p.error
+	}
+	return p.productResponse, nil
 }
 
 type ErrorResponse struct {
@@ -184,7 +198,7 @@ func Test_OrderAPI_FindByID(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
 			logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-			api := NewHandler(&tc.mockService, logger)
+			api := NewHandler(&tc.mockService, nil, logger)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/orders/"+tc.orderID, nil)
 
@@ -320,7 +334,7 @@ func Test_OrderAPI_FindOrdersByUserID(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
 			logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-			api := NewHandler(&tc.mockService, logger)
+			api := NewHandler(&tc.mockService, nil, logger)
 
 			params := make([]string, 0, 2)
 			if !tc.noOffset {
@@ -363,11 +377,12 @@ func Test_OrderAPI_Create(t *testing.T) {
 	createdAt := time.Now()
 
 	testCases := []struct {
-		name         string
-		mockService  mockOrderService
-		requestBody  string
-		expectedCode int
-		expectedBody string
+		name          string
+		mockService   mockOrderService
+		productClient *ProductServiceClientMock
+		requestBody   string
+		expectedCode  int
+		expectedBody  string
 	}{
 		{
 			name: "Success - order created",
@@ -383,6 +398,18 @@ func Test_OrderAPI_Create(t *testing.T) {
 						Version:      1,
 						CreatedAt:    createdAt.Format(time.RFC3339),
 					}},
+				},
+				error: nil,
+			},
+			productClient: &ProductServiceClientMock{
+				productResponse: &pb.GetProductResponse{
+					Product: &pb.Product{
+						Id:            mockItemID.String(),
+						Name:          "Test Product",
+						Price:         100,
+						StockQuantity: 10,
+						Version:       1,
+					},
 				},
 				error: nil,
 			},
@@ -490,6 +517,18 @@ func Test_OrderAPI_Create(t *testing.T) {
 				order: nil,
 				error: errors.New("service unavailable"),
 			},
+			productClient: &ProductServiceClientMock{
+				productResponse: &pb.GetProductResponse{
+					Product: &pb.Product{
+						Id:            mockItemID.String(),
+						Name:          "Test Product",
+						Price:         100,
+						StockQuantity: 10,
+						Version:       1,
+					},
+				},
+				error: nil,
+			},
 			requestBody: toJSON(t, service.OrderCreateDto{
 				UserID: mockUserID,
 				Status: "pending",
@@ -505,13 +544,42 @@ func Test_OrderAPI_Create(t *testing.T) {
 				Error: "Failed to create order",
 			}),
 		},
+		{
+			name: "Error - stock not enough",
+			productClient: &ProductServiceClientMock{
+				productResponse: &pb.GetProductResponse{
+					Product: &pb.Product{
+						Id:            mockItemID.String(),
+						Name:          "Test Product",
+						Price:         100,
+						StockQuantity: 1,
+						Version:       1,
+					},
+				},
+				error: nil,
+			},
+			requestBody: toJSON(t, service.OrderCreateDto{
+				UserID: mockUserID,
+				Status: "pending",
+				Items: []service.OrderItemCreateDto{{
+					ProductID:    mockItemID,
+					Quantity:     10,
+					PricePerItem: 100,
+					Price:        100,
+				}},
+			}),
+			expectedCode: http.StatusBadRequest,
+			expectedBody: toJSON(t, ErrorResponse{
+				Error: "Insufficient stock for product " + mockItemID.String() + ". Available: 1, Requested: 10",
+			}),
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
 			logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-			api := NewHandler(&tc.mockService, logger)
+			api := NewHandler(&tc.mockService, tc.productClient, logger)
 			req := httptest.NewRequest(http.MethodPost, "/api/v1/orders", nil)
 			req.Body = io.NopCloser(strings.NewReader(tc.requestBody))
 			req.Header.Set("Content-Type", "application/json")
@@ -636,7 +704,7 @@ func Test_OrderAPI_Update(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
 			logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-			api := NewHandler(&tc.mockService, logger)
+			api := NewHandler(&tc.mockService, nil, logger)
 			req := httptest.NewRequest(http.MethodPut, "/api/v1/orders/"+tc.orderID.String(), nil)
 			req.Body = io.NopCloser(strings.NewReader(tc.requestBody))
 			req.Header.Set("Content-Type", "application/json")
@@ -662,7 +730,7 @@ func Test_OrderAPI_Update(t *testing.T) {
 func Test_OrderAPI_HealthCheck(t *testing.T) {
 	// given
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	api := NewHandler(nil, logger) // No service needed for health check
+	api := NewHandler(nil, nil, logger) // No service needed for health check
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/healthz", nil)
 	rr := httptest.NewRecorder()
 

@@ -34,12 +34,17 @@ type Config struct {
 		Enabled bool   `koanf:"enabled"`
 		Addr    string `koanf:"addr"`
 	} `koanf:"pprof"`
+
+	Services struct {
+		ProductGrpcAddr string `koanf:"productGrpcAddr"`
+	} `koanf:"services"`
 }
 
 func (c *Config) String() string {
 	return fmt.Sprintf("\n server.port = %d\n server.maxHeaderBytes = %d\n server.timeout.read = %v\n server.timeout.write = %v\n"+
 		" server.timeout.idle = %v\n server.timeout.readHeader = %v\n database_url = %s\n log_level = %s\n pprof_enabled = %t\n"+
-		" pprof_address = %s",
+		" pprof_address = %s\n"+
+		" services.productGrpcAddr = %s\n",
 		c.HTTPServer.Port,
 		c.HTTPServer.MaxHeaderBytes,
 		c.HTTPServer.Timeout.Read,
@@ -50,6 +55,7 @@ func (c *Config) String() string {
 		c.Log.Level,
 		c.PProf.Enabled,
 		c.PProf.Addr,
+		c.Services.ProductGrpcAddr,
 	)
 }
 

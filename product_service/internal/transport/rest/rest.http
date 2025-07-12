@@ -1,0 +1,62 @@
+@host = localhost:8081
+@base-url = http://{{host}}/api/v1
+
+# Product Service API
+
+//Create a new product
+POST {{base-url}}/products HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "Sample Product",
+  "price": 1999,
+  "stock": 100
+}
+
+> {%
+    client.global.set("productID", response.body.id);
+%}
+
+###
+
+//Get an product by ID
+GET {{base-url}}/products/{{productID}} HTTP/1.1
+
+
+###
+
+//Get all products
+GET {{base-url}}/products?offset=0&limit=100 HTTP/1.1
+
+###
+
+//Update an product by ID
+PUT {{base-url}}/products/{{productID}} HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "Updated Product",
+  "price": 2499,
+  "stock": 10,
+  "version": 1
+}
+
+###
+// update product stock
+PUT {{base-url}}/products/{{productID}}/stock HTTP/1.1
+Content-Type: application/json
+
+{
+  "stock": 50,
+  "version": 1
+}
+
+###
+
+//Delete an product by ID
+DELETE {{base-url}}/products/{{productID}}?version=3 HTTP/1.1
+
+###
+
+//health check
+GET {{host}}/healthz HTTP/1.1

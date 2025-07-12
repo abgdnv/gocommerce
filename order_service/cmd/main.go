@@ -14,9 +14,12 @@ import (
 
 	"github.com/abgdnv/gocommerce/order_service/internal/app"
 	"github.com/abgdnv/gocommerce/order_service/internal/config"
+	pb "github.com/abgdnv/gocommerce/pkg/api/gen/go/product/v1"
 	"github.com/abgdnv/gocommerce/pkg/configloader"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const serviceName = "order"
@@ -50,7 +53,23 @@ func run(ctx context.Context) error {
 	defer dbPool.Close()
 	logger.Info("Successfully connected to the database!")
 
-	httpServer, pprofServer := setupServers(dbPool, logger, cfg)
+	// Create a gRPC client connection to the Product service
+	conn, err := grpc.NewClient(cfg.Services.ProductGrpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("failed to create gRPC client connection: %w", err)
+	}
+	defer func(conn *grpc.ClientConn) {
+		err := conn.Close()
+		if err != nil {
+			logger.Error("Failed to close gRPC client connection", slog.String("error", err.Error()))
+		} else {
+			logger.Info("gRPC client connection closed successfully")
+		}
+	}(conn)
+	productClient := pb.NewProductServiceClient(conn)
+
+	// Set up HTTP and pprof servers
+	httpServer, pprofServer := setupServers(dbPool, productClient, logger, cfg)
 
 	g, gCtx := errgroup.WithContext(ctx)
 
@@ -96,8 +115,8 @@ func run(ctx context.Context) error {
 }
 
 // setupServers initializes the HTTP, pprof, and gRPC servers with the provided database pool, logger, and configuration.
-func setupServers(dbPool *pgxpool.Pool, logger *slog.Logger, cfg *config.Config) (*http.Server, *http.Server) {
-	deps := app.SetupDependencies(dbPool, logger)
+func setupServers(dbPool *pgxpool.Pool, productClient pb.ProductServiceClient, logger *slog.Logger, cfg *config.Config) (*http.Server, *http.Server) {
+	deps := app.SetupDependencies(dbPool, productClient, logger)
 	httpServer := app.SetupHttpServer(deps, cfg)
 	pprofServer := &http.Server{
 		Addr: cfg.PProf.Addr,

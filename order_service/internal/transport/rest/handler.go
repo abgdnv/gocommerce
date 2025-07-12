@@ -10,23 +10,26 @@ import (
 
 	ordererrors "github.com/abgdnv/gocommerce/order_service/internal/errors"
 	"github.com/abgdnv/gocommerce/order_service/internal/service"
+	pb "github.com/abgdnv/gocommerce/pkg/api/gen/go/product/v1"
 	"github.com/abgdnv/gocommerce/pkg/web"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 )
 
 type Handler struct {
-	service  service.OrderService
-	validate *validator.Validate
-	logger   *slog.Logger
+	service       service.OrderService
+	validate      *validator.Validate
+	productClient pb.ProductServiceClient
+	logger        *slog.Logger
 }
 
 // NewHandler creates a new instance of OrderAPI with the provided service.
-func NewHandler(service service.OrderService, logger *slog.Logger) *Handler {
+func NewHandler(service service.OrderService, productClient pb.ProductServiceClient, logger *slog.Logger) *Handler {
 	return &Handler{
-		service:  service,
-		validate: validator.New(),
-		logger:   logger.With("component", "rest"),
+		service:       service,
+		validate:      validator.New(),
+		productClient: productClient,
+		logger:        logger.With("component", "rest"),
 	}
 }
 
@@ -147,6 +150,23 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		// If it's not a validation error, we can return a generic error.
 		web.RespondError(w, mLogger, http.StatusBadRequest, "Invalid request body")
 		return
+	}
+
+	// Check if the products exist and has sufficient stock.
+	for _, item := range OrderCreateDto.Items {
+		slog.Info("Checking product stock", slog.String("ProductID", item.ProductID.String()))
+		productResp, err := h.productClient.GetProduct(r.Context(), &pb.GetProductRequest{Id: item.ProductID.String()})
+		if err != nil {
+			mLogger.ErrorContext(r.Context(), "Error fetching product", "ProductID", item.ProductID.String(), "error", err)
+			web.RespondError(w, mLogger, http.StatusInternalServerError, "Failed to fetch product details")
+			return
+		}
+		stockQuantity := productResp.GetProduct().GetStockQuantity()
+		if stockQuantity < item.Quantity {
+			mLogger.WarnContext(r.Context(), "Insufficient product stock", "ProductID", item.ProductID.String(), "AvailableStock", stockQuantity, "RequestedQuantity", item.Quantity)
+			web.RespondError(w, mLogger, http.StatusBadRequest, fmt.Sprintf("Insufficient stock for product %s. Available: %d, Requested: %d", item.ProductID.String(), stockQuantity, item.Quantity))
+			return
+		}
 	}
 
 	newOrder, err := h.service.Create(r.Context(), OrderCreateDto)

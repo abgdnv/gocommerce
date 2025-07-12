@@ -9,6 +9,7 @@ import (
 	"github.com/abgdnv/gocommerce/order_service/internal/service"
 	"github.com/abgdnv/gocommerce/order_service/internal/store"
 	"github.com/abgdnv/gocommerce/order_service/internal/transport/rest"
+	pb "github.com/abgdnv/gocommerce/pkg/api/gen/go/product/v1"
 	"github.com/abgdnv/gocommerce/pkg/server"
 
 	"github.com/go-chi/chi/v5"
@@ -16,16 +17,18 @@ import (
 )
 
 type Dependencies struct {
-	OrderService service.OrderService
-	Logger       *slog.Logger
+	OrderService  service.OrderService
+	productClient pb.ProductServiceClient
+	Logger        *slog.Logger
 }
 
-func SetupDependencies(dbPool *pgxpool.Pool, logger *slog.Logger) *Dependencies {
+func SetupDependencies(dbPool *pgxpool.Pool, productClient pb.ProductServiceClient, logger *slog.Logger) *Dependencies {
 	pService := service.NewService(store.NewPgStore(dbPool))
 
 	return &Dependencies{
-		OrderService: pService,
-		Logger:       logger,
+		OrderService:  pService,
+		productClient: productClient,
+		Logger:        logger,
 	}
 }
 
@@ -39,7 +42,7 @@ func SetupHttpHandler(deps *Dependencies) http.Handler {
 
 // wireRoutes sets up the HTTP routes for the OrderService application.
 func wireRoutes(mux *chi.Mux, deps *Dependencies) {
-	productHandler := rest.NewHandler(deps.OrderService, deps.Logger)
+	productHandler := rest.NewHandler(deps.OrderService, deps.productClient, deps.Logger)
 	productHandler.RegisterRoutes(mux)
 }
 
