@@ -109,7 +109,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      product_migrator:
+      order_migrator:
         condition: service_completed_successfully
 
 
