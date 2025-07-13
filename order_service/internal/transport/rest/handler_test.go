@@ -19,6 +19,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // mockOrderService is a mock implementation of the OrderService interface
@@ -59,9 +61,19 @@ func (m *mockOrderService) Update(_ context.Context, _ uuid.UUID, _ service.Orde
 type ProductServiceClientMock struct {
 	productResponse *pb.GetProductResponse
 	error           error
+	ServerTimeout   time.Duration
 }
 
-func (p ProductServiceClientMock) GetProduct(_ context.Context, _ *pb.GetProductRequest, _ ...grpc.CallOption) (*pb.GetProductResponse, error) {
+func (p ProductServiceClientMock) GetProduct(ctx context.Context, _ *pb.GetProductRequest, _ ...grpc.CallOption) (*pb.GetProductResponse, error) {
+	if p.ServerTimeout > 0 {
+		timer := time.NewTimer(p.ServerTimeout)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return nil, status.Error(codes.DeadlineExceeded, "context deadline exceeded")
+		case <-timer.C:
+		}
+	}
 	if p.error != nil {
 		return nil, p.error
 	}
@@ -198,7 +210,7 @@ func Test_OrderAPI_FindByID(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
 			logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-			api := NewHandler(&tc.mockService, nil, logger)
+			api := NewHandler(&tc.mockService, nil, 0, logger)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/orders/"+tc.orderID, nil)
 
@@ -334,7 +346,7 @@ func Test_OrderAPI_FindOrdersByUserID(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
 			logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-			api := NewHandler(&tc.mockService, nil, logger)
+			api := NewHandler(&tc.mockService, nil, 0, logger)
 
 			params := make([]string, 0, 2)
 			if !tc.noOffset {
@@ -377,12 +389,13 @@ func Test_OrderAPI_Create(t *testing.T) {
 	createdAt := time.Now()
 
 	testCases := []struct {
-		name          string
-		mockService   mockOrderService
-		productClient *ProductServiceClientMock
-		requestBody   string
-		expectedCode  int
-		expectedBody  string
+		name                 string
+		mockService          mockOrderService
+		productClient        *ProductServiceClientMock
+		productClientTimeout time.Duration
+		requestBody          string
+		expectedCode         int
+		expectedBody         string
 	}{
 		{
 			name: "Success - order created",
@@ -573,13 +586,40 @@ func Test_OrderAPI_Create(t *testing.T) {
 				Error: "Insufficient stock for product " + mockItemID.String() + ". Available: 1, Requested: 10",
 			}),
 		},
+		{
+			name: "Error - product service timeout",
+			mockService: mockOrderService{
+				order: nil,
+				error: nil,
+			},
+			productClient: &ProductServiceClientMock{
+				productResponse: &pb.GetProductResponse{},
+				error:           nil,
+				ServerTimeout:   3 * time.Second, // Simulate a timeout
+			},
+			productClientTimeout: 2 * time.Second,
+			requestBody: toJSON(t, service.OrderCreateDto{
+				UserID: mockUserID,
+				Status: "pending",
+				Items: []service.OrderItemCreateDto{{
+					ProductID:    mockItemID,
+					Quantity:     1,
+					PricePerItem: 100,
+					Price:        100,
+				}},
+			}),
+			expectedCode: http.StatusGatewayTimeout,
+			expectedBody: toJSON(t, ErrorResponse{
+				Error: "The request timed out",
+			}),
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
 			logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-			api := NewHandler(&tc.mockService, tc.productClient, logger)
+			api := NewHandler(&tc.mockService, tc.productClient, tc.productClientTimeout, logger)
 			req := httptest.NewRequest(http.MethodPost, "/api/v1/orders", nil)
 			req.Body = io.NopCloser(strings.NewReader(tc.requestBody))
 			req.Header.Set("Content-Type", "application/json")
@@ -704,7 +744,7 @@ func Test_OrderAPI_Update(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
 			logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-			api := NewHandler(&tc.mockService, nil, logger)
+			api := NewHandler(&tc.mockService, nil, 0, logger)
 			req := httptest.NewRequest(http.MethodPut, "/api/v1/orders/"+tc.orderID.String(), nil)
 			req.Body = io.NopCloser(strings.NewReader(tc.requestBody))
 			req.Header.Set("Content-Type", "application/json")
@@ -730,7 +770,7 @@ func Test_OrderAPI_Update(t *testing.T) {
 func Test_OrderAPI_HealthCheck(t *testing.T) {
 	// given
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	api := NewHandler(nil, nil, logger) // No service needed for health check
+	api := NewHandler(nil, nil, 0, logger) // No service needed for health check
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/healthz", nil)
 	rr := httptest.NewRecorder()
 

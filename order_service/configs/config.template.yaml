@@ -14,4 +14,7 @@ pprof:
   enabled: false
   addr: "localhost:6060"
 services:
-  productGrpcAddr: "localhost:50051"
+  product:
+    Grpc:
+      Addr: "localhost:50051"
+      Timeout: 2s

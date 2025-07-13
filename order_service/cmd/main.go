@@ -54,7 +54,7 @@ func run(ctx context.Context) error {
 	logger.Info("Successfully connected to the database!")
 
 	// Create a gRPC client connection to the Product service
-	conn, err := grpc.NewClient(cfg.Services.ProductGrpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(cfg.Services.Product.Grpc.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("failed to create gRPC client connection: %w", err)
 	}
@@ -116,7 +116,7 @@ func run(ctx context.Context) error {
 
 // setupServers initializes the HTTP, pprof, and gRPC servers with the provided database pool, logger, and configuration.
 func setupServers(dbPool *pgxpool.Pool, productClient pb.ProductServiceClient, logger *slog.Logger, cfg *config.Config) (*http.Server, *http.Server) {
-	deps := app.SetupDependencies(dbPool, productClient, logger)
+	deps := app.SetupDependencies(dbPool, productClient, cfg.Services.Product.Grpc.Timeout, logger)
 	httpServer := app.SetupHttpServer(deps, cfg)
 	pprofServer := &http.Server{
 		Addr: cfg.PProf.Addr,

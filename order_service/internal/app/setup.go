@@ -4,6 +4,7 @@ package app
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/abgdnv/gocommerce/order_service/internal/config"
 	"github.com/abgdnv/gocommerce/order_service/internal/service"
@@ -17,18 +18,20 @@ import (
 )
 
 type Dependencies struct {
-	OrderService  service.OrderService
-	productClient pb.ProductServiceClient
-	Logger        *slog.Logger
+	OrderService         service.OrderService
+	productClient        pb.ProductServiceClient
+	productClientTimeout time.Duration
+	Logger               *slog.Logger
 }
 
-func SetupDependencies(dbPool *pgxpool.Pool, productClient pb.ProductServiceClient, logger *slog.Logger) *Dependencies {
+func SetupDependencies(dbPool *pgxpool.Pool, productClient pb.ProductServiceClient, productClientTimeout time.Duration, logger *slog.Logger) *Dependencies {
 	pService := service.NewService(store.NewPgStore(dbPool))
 
 	return &Dependencies{
-		OrderService:  pService,
-		productClient: productClient,
-		Logger:        logger,
+		OrderService:         pService,
+		productClient:        productClient,
+		productClientTimeout: productClientTimeout,
+		Logger:               logger,
 	}
 }
 
@@ -42,7 +45,7 @@ func SetupHttpHandler(deps *Dependencies) http.Handler {
 
 // wireRoutes sets up the HTTP routes for the OrderService application.
 func wireRoutes(mux *chi.Mux, deps *Dependencies) {
-	productHandler := rest.NewHandler(deps.OrderService, deps.productClient, deps.Logger)
+	productHandler := rest.NewHandler(deps.OrderService, deps.productClient, deps.productClientTimeout, deps.Logger)
 	productHandler.RegisterRoutes(mux)
 }
 

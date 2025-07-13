@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func RespondJSON(w http.ResponseWriter, logger *slog.Logger, status int, payload any) {
@@ -55,4 +57,24 @@ func GetUserID(w http.ResponseWriter, r *http.Request, logger *slog.Logger) (uui
 		return uuid.Nil, false
 	}
 	return parsedUserID, true
+}
+
+func MapGrpcToHttpStatus(err error) (statusCode int, message string) {
+	st, ok := status.FromError(err)
+	if !ok {
+		// the error is not a gRPC status
+		return http.StatusInternalServerError, "Internal server error"
+	}
+	switch st.Code() {
+	case codes.NotFound:
+		return http.StatusNotFound, st.Message()
+	case codes.DeadlineExceeded:
+		return http.StatusGatewayTimeout, "The request timed out"
+	case codes.Unavailable:
+		return http.StatusServiceUnavailable, "Service is temporarily unavailable"
+	case codes.InvalidArgument:
+		return http.StatusBadRequest, st.Message()
+	default:
+		return http.StatusInternalServerError, "An unexpected error occurred"
+	}
 }

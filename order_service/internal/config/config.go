@@ -36,7 +36,12 @@ type Config struct {
 	} `koanf:"pprof"`
 
 	Services struct {
-		ProductGrpcAddr string `koanf:"productGrpcAddr"`
+		Product struct {
+			Grpc struct {
+				Addr    string        `koanf:"addr"`
+				Timeout time.Duration `koanf:"timeout"`
+			} `koanf:"grpc"`
+		} `koanf:"product"`
 	} `koanf:"services"`
 }
 
@@ -44,7 +49,8 @@ func (c *Config) String() string {
 	return fmt.Sprintf("\n server.port = %d\n server.maxHeaderBytes = %d\n server.timeout.read = %v\n server.timeout.write = %v\n"+
 		" server.timeout.idle = %v\n server.timeout.readHeader = %v\n database_url = %s\n log_level = %s\n pprof_enabled = %t\n"+
 		" pprof_address = %s\n"+
-		" services.productGrpcAddr = %s\n",
+		" services.product.Grpc.Addr = %s\n"+
+		" services.product.Grpc.Timeout = %s",
 		c.HTTPServer.Port,
 		c.HTTPServer.MaxHeaderBytes,
 		c.HTTPServer.Timeout.Read,
@@ -55,7 +61,8 @@ func (c *Config) String() string {
 		c.Log.Level,
 		c.PProf.Enabled,
 		c.PProf.Addr,
-		c.Services.ProductGrpcAddr,
+		c.Services.Product.Grpc.Addr,
+		c.Services.Product.Grpc.Timeout,
 	)
 }
 
@@ -96,6 +103,12 @@ func (c *Config) Validate() error {
 	}
 	if c.PProf.Enabled && c.PProf.Addr == "" {
 		return fmt.Errorf("pprof is enabled but address is not configured")
+	}
+	if c.Services.Product.Grpc.Addr == "" {
+		return fmt.Errorf("product service gRPC address is not configured")
+	}
+	if c.Services.Product.Grpc.Timeout <= 0 {
+		return fmt.Errorf("product service gRPC timeout is not configured")
 	}
 	return nil
 }

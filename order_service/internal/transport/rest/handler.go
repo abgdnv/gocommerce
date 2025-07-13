@@ -2,11 +2,13 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	ordererrors "github.com/abgdnv/gocommerce/order_service/internal/errors"
 	"github.com/abgdnv/gocommerce/order_service/internal/service"
@@ -17,19 +19,21 @@ import (
 )
 
 type Handler struct {
-	service       service.OrderService
-	validate      *validator.Validate
-	productClient pb.ProductServiceClient
-	logger        *slog.Logger
+	service              service.OrderService
+	validate             *validator.Validate
+	productClient        pb.ProductServiceClient
+	productClientTimeout time.Duration
+	logger               *slog.Logger
 }
 
 // NewHandler creates a new instance of OrderAPI with the provided service.
-func NewHandler(service service.OrderService, productClient pb.ProductServiceClient, logger *slog.Logger) *Handler {
+func NewHandler(service service.OrderService, productClient pb.ProductServiceClient, productClientTimeout time.Duration, logger *slog.Logger) *Handler {
 	return &Handler{
-		service:       service,
-		validate:      validator.New(),
-		productClient: productClient,
-		logger:        logger.With("component", "rest"),
+		service:              service,
+		validate:             validator.New(),
+		productClient:        productClient,
+		productClientTimeout: productClientTimeout,
+		logger:               logger.With("component", "rest"),
 	}
 }
 
@@ -153,12 +157,15 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the products exist and has sufficient stock.
+	ctx, cancel := context.WithTimeout(r.Context(), h.productClientTimeout)
+	defer cancel()
 	for _, item := range OrderCreateDto.Items {
 		slog.Info("Checking product stock", slog.String("ProductID", item.ProductID.String()))
-		productResp, err := h.productClient.GetProduct(r.Context(), &pb.GetProductRequest{Id: item.ProductID.String()})
+		productResp, err := h.productClient.GetProduct(ctx, &pb.GetProductRequest{Id: item.ProductID.String()})
 		if err != nil {
-			mLogger.ErrorContext(r.Context(), "Error fetching product", "ProductID", item.ProductID.String(), "error", err)
-			web.RespondError(w, mLogger, http.StatusInternalServerError, "Failed to fetch product details")
+			mLogger.ErrorContext(r.Context(), "Failed to get product info from Product service", "error", err)
+			errStatus, message := web.MapGrpcToHttpStatus(err)
+			web.RespondError(w, mLogger, errStatus, message)
 			return
 		}
 		stockQuantity := productResp.GetProduct().GetStockQuantity()
