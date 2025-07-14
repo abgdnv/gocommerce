@@ -20,6 +20,25 @@ services:
       retries: 5
       start_period: 10s
 
+  nats:
+    image: nats:2.11.6-alpine
+    container_name: nats
+    ports:
+      - "${NATS_HOST_PORT_CLIENT}:4222"
+      - "${NATS_HOST_PORT_ROUTING}:6222"
+      - "${NATS_HOST_PORT_MONITORING}:${NATS_INTERNAL_MONITORING_PORT}"
+    command:
+      - "--jetstream"
+      - "--http_port=${NATS_INTERNAL_MONITORING_PORT}"
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${NATS_INTERNAL_MONITORING_PORT}/healthz || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   product_migrator:
     image: migrate/migrate:4
     container_name: product-migrator
@@ -105,10 +124,13 @@ services:
       - ORDER_SVC_PPROF_ADDR=${ORDER_SVC_PPROF_ADDR}
       - ORDER_SVC_SERVICES_PRODUCT_GRPC_ADDR=${ORDER_SVC_SERVICES_PRODUCT_GRPC_ADDR}
       - ORDER_SVC_SERVICES_PRODUCT_GRPC_TIMEOUT=${ORDER_SVC_SERVICES_PRODUCT_GRPC_TIMEOUT}
+      - ORDER_SVC_NATS_URL=${ORDER_SVC_NATS_URL}
     networks:
       - ecommerce-network
     depends_on:
       db:
+        condition: service_healthy
+      nats:
         condition: service_healthy
       order_migrator:
         condition: service_completed_successfully
