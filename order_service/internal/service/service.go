@@ -3,11 +3,14 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"time"
 
 	ordererrors "github.com/abgdnv/gocommerce/order_service/internal/errors"
 	"github.com/abgdnv/gocommerce/order_service/internal/store"
 	"github.com/abgdnv/gocommerce/order_service/internal/store/db"
+	pb "github.com/abgdnv/gocommerce/pkg/api/gen/go/product/v1"
 
 	"github.com/google/uuid"
 )
@@ -34,13 +37,17 @@ type OrderService interface {
 
 // Service implements OrderService and provides methods to manage orders.
 type Service struct {
-	orderStore store.OrderStore
+	orderStore           store.OrderStore
+	productClient        pb.ProductServiceClient
+	productClientTimeout time.Duration
 }
 
 // NewService creates a new instance of OrderService with the provided orderStore.
-func NewService(orderStore store.OrderStore) *Service {
+func NewService(orderStore store.OrderStore, productClient pb.ProductServiceClient, productClientTimeout time.Duration) *Service {
 	return &Service{
-		orderStore: orderStore,
+		orderStore:           orderStore,
+		productClient:        productClient,
+		productClientTimeout: productClientTimeout,
 	}
 }
 
@@ -126,8 +133,23 @@ func (s *Service) Create(ctx context.Context, order OrderCreateDto) (*OrderDto, 
 		Status: order.Status,
 	}
 
+	// Check if the products exist and has sufficient stock.
+	ctx, cancel := context.WithTimeout(ctx, s.productClientTimeout)
+	defer cancel()
 	orderItems := make([]db.CreateOrderItemParams, 0, len(order.Items))
 	for _, item := range order.Items {
+		slog.Info("Checking product stock", slog.String("ProductID", item.ProductID.String()))
+		productResp, err := s.productClient.GetProduct(ctx, &pb.GetProductRequest{Id: item.ProductID.String()})
+		if err != nil {
+			slog.ErrorContext(ctx, "Failed to get product info from Product service", "error", err)
+			return nil, err
+		}
+		stockQuantity := productResp.GetProduct().GetStockQuantity()
+		if stockQuantity < item.Quantity {
+			message := fmt.Sprintf("product %s. Available: %d, Requested: %d", item.ProductID.String(), stockQuantity, item.Quantity)
+			slog.WarnContext(ctx, fmt.Sprintf("Insufficient stock for %s", message))
+			return nil, fmt.Errorf("%s: %w", message, ordererrors.ErrInsufficientStock)
+		}
 		orderItems = append(orderItems, db.CreateOrderItemParams{
 			OrderID:      order.UserID,
 			ProductID:    item.ProductID,

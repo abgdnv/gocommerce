@@ -7,9 +7,13 @@ import (
 
 	ordererrors "github.com/abgdnv/gocommerce/order_service/internal/errors"
 	"github.com/abgdnv/gocommerce/order_service/internal/store/db"
+	pb "github.com/abgdnv/gocommerce/pkg/api/gen/go/product/v1"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // mockOrderStore is a mock implementation of the OrderStore interface
@@ -22,32 +26,56 @@ type mockOrderStore struct {
 	updateError error
 }
 
-func (m *mockOrderStore) FindByID(ctx context.Context, id uuid.UUID) (*db.Order, *[]db.OrderItem, error) {
+func (m *mockOrderStore) FindByID(_ context.Context, _ uuid.UUID) (*db.Order, *[]db.OrderItem, error) {
 	if m.error != nil {
 		return nil, nil, m.error
 	}
 	return m.order, m.items, nil
 }
 
-func (m *mockOrderStore) FindOrdersByUserID(ctx context.Context, params *db.FindOrdersByUserIDParams) (*[]db.Order, error) {
+func (m *mockOrderStore) FindOrdersByUserID(_ context.Context, _ *db.FindOrdersByUserIDParams) (*[]db.Order, error) {
 	if m.error != nil {
 		return nil, m.error
 	}
 	return m.orders, nil
 }
 
-func (m *mockOrderStore) CreateOrder(ctx context.Context, orderParams *db.CreateOrderParams, items *[]db.CreateOrderItemParams) (*db.Order, *[]db.OrderItem, error) {
+func (m *mockOrderStore) CreateOrder(_ context.Context, _ *db.CreateOrderParams, _ *[]db.CreateOrderItemParams) (*db.Order, *[]db.OrderItem, error) {
 	if m.error != nil {
 		return nil, nil, m.error
 	}
 	return m.order, m.items, nil
 }
 
-func (m *mockOrderStore) Update(ctx context.Context, params *db.UpdateOrderParams) (*db.Order, error) {
+func (m *mockOrderStore) Update(_ context.Context, _ *db.UpdateOrderParams) (*db.Order, error) {
 	if m.updateError != nil {
 		return nil, m.updateError
 	}
 	return m.updateOrder, nil
+}
+
+type ProductServiceClientMock struct {
+	productResponse *pb.GetProductResponse
+	error           error
+	ServerTimeout   time.Duration
+}
+
+var errContextDeadlineExceeded = status.Error(codes.DeadlineExceeded, "context deadline exceeded")
+
+func (p ProductServiceClientMock) GetProduct(ctx context.Context, _ *pb.GetProductRequest, _ ...grpc.CallOption) (*pb.GetProductResponse, error) {
+	if p.ServerTimeout > 0 {
+		timer := time.NewTimer(p.ServerTimeout)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return nil, errContextDeadlineExceeded
+		case <-timer.C:
+		}
+	}
+	if p.error != nil {
+		return nil, p.error
+	}
+	return p.productResponse, nil
 }
 
 func assertEqualOrderDto(t *testing.T, expected, actual *OrderDto) {
@@ -149,7 +177,7 @@ func Test_OrderService_FindByID(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
-			service := NewService(tc.mockStore)
+			service := NewService(tc.mockStore, nil, 0)
 			// when
 			found, err := service.FindByID(context.Background(), tc.userID, tc.orderID)
 			// then
@@ -215,7 +243,7 @@ func Test_OrderService_FindOrdersByUserID(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
-			service := NewService(tc.mockStore)
+			service := NewService(tc.mockStore, nil, 0)
 			// when
 			found, err := service.FindOrdersByUserID(context.Background(), tc.userID, 0, 10)
 			// then
@@ -238,17 +266,31 @@ func Test_OrderService_Create(t *testing.T) {
 
 	createdAt := time.Now()
 	testCases := []struct {
-		name        string
-		mockStore   *mockOrderStore
-		order       OrderCreateDto
-		expected    *OrderDto
-		expectError error
+		name                 string
+		mockStore            *mockOrderStore
+		productClient        *ProductServiceClientMock
+		productClientTimeout time.Duration
+		order                OrderCreateDto
+		expected             *OrderDto
+		expectError          error
 	}{
 		{
 			name: "Success - order created",
 			mockStore: &mockOrderStore{
 				order: &db.Order{ID: mockID, UserID: userID, Status: "PENDING", Version: 1, CreatedAt: &createdAt},
 				items: &[]db.OrderItem{{ID: OrderItemID, OrderID: mockID, ProductID: ProductID, Quantity: 1, Price: 100, CreatedAt: &createdAt}},
+				error: nil,
+			},
+			productClient: &ProductServiceClientMock{
+				productResponse: &pb.GetProductResponse{
+					Product: &pb.Product{
+						Id:            ProductID.String(),
+						Name:          "Test Product",
+						Price:         100,
+						StockQuantity: 10,
+						Version:       1,
+					},
+				},
 				error: nil,
 			},
 			order: OrderCreateDto{UserID: userID, Status: "PENDING", Items: []OrderItemCreateDto{{ProductID: ProductID, Quantity: 1, Price: 100}}},
@@ -261,16 +303,54 @@ func Test_OrderService_Create(t *testing.T) {
 			mockStore: &mockOrderStore{
 				error: ordererrors.ErrCreateOrder,
 			},
+			productClient: &ProductServiceClientMock{
+				productResponse: &pb.GetProductResponse{
+					Product: &pb.Product{
+						Id:            ProductID.String(),
+						Name:          "Test Product",
+						Price:         100,
+						StockQuantity: 1,
+						Version:       1,
+					},
+				},
+				error: nil,
+			},
 			order:       OrderCreateDto{UserID: userID, Status: "PENDING", Items: []OrderItemCreateDto{{ProductID: ProductID, Quantity: 1, Price: 100}}},
 			expected:    nil,
 			expectError: ordererrors.ErrCreateOrder,
+		},
+		{
+			name: "Error - insufficient stock",
+			productClient: &ProductServiceClientMock{
+				productResponse: &pb.GetProductResponse{
+					Product: &pb.Product{
+						Id:            ProductID.String(),
+						Name:          "Test Product",
+						Price:         100,
+						StockQuantity: 1,
+						Version:       1,
+					},
+				},
+				error: nil,
+			},
+			order:       OrderCreateDto{UserID: userID, Status: "PENDING", Items: []OrderItemCreateDto{{ProductID: ProductID, Quantity: 10, Price: 100}}},
+			expectError: ordererrors.ErrInsufficientStock,
+		},
+		{
+			name: "Error - product service timeout",
+			productClient: &ProductServiceClientMock{
+				ServerTimeout: 3 * time.Second,
+			},
+			productClientTimeout: 2 * time.Second,
+			order:                OrderCreateDto{UserID: userID, Status: "PENDING", Items: []OrderItemCreateDto{{ProductID: ProductID, Quantity: 10, Price: 100}}},
+			expectError:          errContextDeadlineExceeded,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
-			service := NewService(tc.mockStore)
+			service := NewService(tc.mockStore, tc.productClient, tc.productClientTimeout)
 			// when
 			created, err := service.Create(context.Background(), tc.order)
 			// then
@@ -345,7 +425,7 @@ func Test_OrderService_Update(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// given
-			service := NewService(tc.mockStore)
+			service := NewService(tc.mockStore, nil, 0)
 			// when
 			updated, err := service.Update(context.Background(), mockUserID, tc.order)
 			// then

@@ -18,20 +18,16 @@ import (
 )
 
 type Dependencies struct {
-	OrderService         service.OrderService
-	productClient        pb.ProductServiceClient
-	productClientTimeout time.Duration
-	Logger               *slog.Logger
+	OrderService service.OrderService
+	Logger       *slog.Logger
 }
 
 func SetupDependencies(dbPool *pgxpool.Pool, productClient pb.ProductServiceClient, productClientTimeout time.Duration, logger *slog.Logger) *Dependencies {
-	pService := service.NewService(store.NewPgStore(dbPool))
+	pService := service.NewService(store.NewPgStore(dbPool), productClient, productClientTimeout)
 
 	return &Dependencies{
-		OrderService:         pService,
-		productClient:        productClient,
-		productClientTimeout: productClientTimeout,
-		Logger:               logger,
+		OrderService: pService,
+		Logger:       logger,
 	}
 }
 
@@ -45,7 +41,7 @@ func SetupHttpHandler(deps *Dependencies) http.Handler {
 
 // wireRoutes sets up the HTTP routes for the OrderService application.
 func wireRoutes(mux *chi.Mux, deps *Dependencies) {
-	productHandler := rest.NewHandler(deps.OrderService, deps.productClient, deps.productClientTimeout, deps.Logger)
+	productHandler := rest.NewHandler(deps.OrderService, deps.Logger)
 	productHandler.RegisterRoutes(mux)
 }
 

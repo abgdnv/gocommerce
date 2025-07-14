@@ -20,3 +20,5 @@ var ErrTransactionCommit = errors.New("failed to commit transaction")
 var ErrTransactionRollback = errors.New("failed to rollback transaction")
 
 var ErrAccessDenied = errors.New("access denied")
+
+var ErrInsufficientStock = errors.New("insufficient stock for product")

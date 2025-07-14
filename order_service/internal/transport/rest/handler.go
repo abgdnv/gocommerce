@@ -2,38 +2,32 @@
 package rest
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"time"
 
 	ordererrors "github.com/abgdnv/gocommerce/order_service/internal/errors"
 	"github.com/abgdnv/gocommerce/order_service/internal/service"
-	pb "github.com/abgdnv/gocommerce/pkg/api/gen/go/product/v1"
 	"github.com/abgdnv/gocommerce/pkg/web"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 )
 
 type Handler struct {
-	service              service.OrderService
-	validate             *validator.Validate
-	productClient        pb.ProductServiceClient
-	productClientTimeout time.Duration
-	logger               *slog.Logger
+	service  service.OrderService
+	validate *validator.Validate
+	logger   *slog.Logger
 }
 
 // NewHandler creates a new instance of OrderAPI with the provided service.
-func NewHandler(service service.OrderService, productClient pb.ProductServiceClient, productClientTimeout time.Duration, logger *slog.Logger) *Handler {
+func NewHandler(service service.OrderService, logger *slog.Logger) *Handler {
 	return &Handler{
-		service:              service,
-		validate:             validator.New(),
-		productClient:        productClient,
-		productClientTimeout: productClientTimeout,
-		logger:               logger.With("component", "rest"),
+		service:  service,
+		validate: validator.New(),
+
+		logger: logger.With("component", "rest"),
 	}
 }
 
@@ -156,30 +150,13 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if the products exist and has sufficient stock.
-	ctx, cancel := context.WithTimeout(r.Context(), h.productClientTimeout)
-	defer cancel()
-	for _, item := range OrderCreateDto.Items {
-		slog.Info("Checking product stock", slog.String("ProductID", item.ProductID.String()))
-		productResp, err := h.productClient.GetProduct(ctx, &pb.GetProductRequest{Id: item.ProductID.String()})
-		if err != nil {
-			mLogger.ErrorContext(r.Context(), "Failed to get product info from Product service", "error", err)
-			errStatus, message := web.MapGrpcToHttpStatus(err)
-			web.RespondError(w, mLogger, errStatus, message)
-			return
-		}
-		stockQuantity := productResp.GetProduct().GetStockQuantity()
-		if stockQuantity < item.Quantity {
-			mLogger.WarnContext(r.Context(), "Insufficient product stock", "ProductID", item.ProductID.String(), "AvailableStock", stockQuantity, "RequestedQuantity", item.Quantity)
-			web.RespondError(w, mLogger, http.StatusBadRequest, fmt.Sprintf("Insufficient stock for product %s. Available: %d, Requested: %d", item.ProductID.String(), stockQuantity, item.Quantity))
-			return
-		}
-	}
-
 	newOrder, err := h.service.Create(r.Context(), OrderCreateDto)
-	if err != nil {
-		mLogger.ErrorContext(r.Context(), "Error creating order", "error", err)
-		web.RespondError(w, mLogger, http.StatusInternalServerError, "Failed to create order")
+	if err != nil && errors.Is(err, ordererrors.ErrInsufficientStock) {
+		web.RespondError(w, mLogger, http.StatusBadRequest, err.Error())
+		return
+	} else if err != nil {
+		errStatus, message := web.MapGrpcToHttpStatus(err)
+		web.RespondError(w, mLogger, errStatus, message)
 		return
 	}
 	mLogger.InfoContext(r.Context(), "Order created successfully", slog.String("ID", newOrder.ID.String()))
