@@ -79,7 +79,7 @@ func Test_ProductAPI_FindByID(t *testing.T) {
 			},
 			productID:    "123-invalid-id",
 			expectedCode: http.StatusBadRequest,
-			expectedBody: `{"error":"Invalid product ID: 123-invalid-id"}`,
+			expectedBody: `{"error":"Invalid ID: 123-invalid-id"}`,
 		},
 		{
 			name: "Error - product not found",
