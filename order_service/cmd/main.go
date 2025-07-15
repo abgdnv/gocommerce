@@ -49,7 +49,7 @@ func run(ctx context.Context) error {
 	logger := newLogger(cfg.Log.Level)
 	slog.SetDefault(logger)
 
-	dbPool, err := newDbPool(ctx, cfg.Database.URL, cfg.Database.ConnectTimeout)
+	dbPool, err := newDbPool(ctx, cfg.Database.URL, cfg.Database.Timeout)
 	if err != nil {
 		return fmt.Errorf("failed to create database connection pool: %w", err)
 	}
@@ -63,7 +63,7 @@ func run(ctx context.Context) error {
 	}
 	productClient := pb.NewProductServiceClient(grpcClient)
 
-	natsConn, err := nats.NewClient(cfg.Nats.Url, cfg.Nats.DialTimeout)
+	natsConn, err := nats.NewClient(cfg.Nats.Url, cfg.Nats.Timeout)
 	if err != nil {
 		return fmt.Errorf("failed to create NATS connection: %w", err)
 	}

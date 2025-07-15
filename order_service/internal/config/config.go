@@ -23,8 +23,8 @@ type Config struct {
 	} `koanf:"server"`
 
 	Database struct {
-		URL            string        `koanf:"url"`
-		ConnectTimeout time.Duration `koanf:"timeout"`
+		URL     string        `koanf:"url"`
+		Timeout time.Duration `koanf:"timeout"`
 	} `koanf:"database"`
 
 	Log struct {
@@ -45,8 +45,8 @@ type Config struct {
 	} `koanf:"services"`
 
 	Nats struct {
-		Url         string        `koanf:"url"`
-		DialTimeout time.Duration `koanf:"timeout"`
+		Url     string        `koanf:"url"`
+		Timeout time.Duration `koanf:"timeout"`
 	} `koanf:"nats"`
 
 	Shutdown struct {
@@ -72,13 +72,13 @@ func (c *Config) String() string {
 		c.HTTPServer.Timeout.Idle,
 		c.HTTPServer.Timeout.ReadHeader,
 		maskURL(c.Database.URL),
-		c.Database.ConnectTimeout,
+		c.Database.Timeout,
 		c.Log.Level,
 		c.PProf.Enabled,
 		c.PProf.Addr,
 		c.Services.Product.Grpc.Addr,
 		c.Nats.Url,
-		c.Nats.DialTimeout,
+		c.Nats.Timeout,
 		c.Shutdown.Timeout,
 	)
 }
@@ -118,7 +118,7 @@ func (c *Config) Validate() error {
 	if !isValidPostgresURL(c.Database.URL) {
 		return fmt.Errorf("database URL must start with 'postgres://': %s", c.Database.URL)
 	}
-	if c.Database.ConnectTimeout <= 0 {
+	if c.Database.Timeout <= 0 {
 		return fmt.Errorf("database connect timeout is not configured")
 	}
 	if c.PProf.Enabled && c.PProf.Addr == "" {
@@ -130,7 +130,7 @@ func (c *Config) Validate() error {
 	if c.Nats.Url == "" {
 		return fmt.Errorf("NATS URL is not configured")
 	}
-	if c.Nats.DialTimeout <= 0 {
+	if c.Nats.Timeout <= 0 {
 		return fmt.Errorf("nats dial timeout is not configured")
 	}
 	if c.Shutdown.Timeout <= 0 {
