@@ -16,8 +16,8 @@ pprof:
   addr: "localhost:6060"
 services:
   product:
-    Grpc:
-      Addr: "localhost:50051"
+    grpc:
+      addr: "localhost:50051"
 nats:
   url: "nats://localhost:4222"
   timeout: 2s

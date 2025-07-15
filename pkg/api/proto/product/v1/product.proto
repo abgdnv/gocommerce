@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package product.v1;
 
-option go_package = "github.com/abgdnv/gocommerce/shared/gen/go/product/v1;product_v1";
+option go_package = "github.com/abgdnv/gocommerce/pkg/api/gen/go/product/v1;product_v1";
 
 service ProductService {
   rpc GetProduct(GetProductRequest) returns (GetProductResponse);

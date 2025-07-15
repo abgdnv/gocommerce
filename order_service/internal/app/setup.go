@@ -43,8 +43,8 @@ func SetupHttpHandler(deps *Dependencies) http.Handler {
 
 // wireRoutes sets up the HTTP routes for the OrderService application.
 func wireRoutes(mux *chi.Mux, deps *Dependencies) {
-	productHandler := rest.NewHandler(deps.OrderService, deps.Logger)
-	productHandler.RegisterRoutes(mux)
+	orderHandler := rest.NewHandler(deps.OrderService, deps.Logger)
+	orderHandler.RegisterRoutes(mux)
 }
 
 // SetupHttpServer creates and configures an HTTP server for the OrderService application.

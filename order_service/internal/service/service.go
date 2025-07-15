@@ -152,7 +152,6 @@ func (s *Service) Create(ctx context.Context, order OrderCreateDto) (*OrderDto, 
 			return nil, fmt.Errorf("%s: %w", message, ordererrors.ErrInsufficientStock)
 		}
 		orderItems = append(orderItems, db.CreateOrderItemParams{
-			OrderID:      order.UserID,
 			ProductID:    item.ProductID,
 			Quantity:     item.Quantity,
 			PricePerItem: item.PricePerItem,
