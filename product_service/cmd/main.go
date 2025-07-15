@@ -49,7 +49,7 @@ func run(ctx context.Context) error {
 	logger := newLogger(cfg.Log.Level)
 	slog.SetDefault(logger)
 
-	dbPool, err := newDbPool(ctx, cfg.Database.URL)
+	dbPool, err := newDbPool(ctx, cfg.Database.URL, cfg.Database.Timeout)
 	if err != nil {
 		return fmt.Errorf("failed to create database connection pool: %w", err)
 	}
@@ -72,7 +72,7 @@ func run(ctx context.Context) error {
 	g.Go(func() error {
 		<-gCtx.Done()
 		logger.Info("Shutting down HTTP server...")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Shutdown.Timeout)
 		defer cancel()
 		return httpServer.Shutdown(shutdownCtx)
 	})
@@ -91,8 +91,20 @@ func run(ctx context.Context) error {
 	g.Go(func() error {
 		<-gCtx.Done()
 		logger.Info("Shutting down gRPC server...")
-		grpcServer.GracefulStop()
-		return nil
+		stopped := make(chan struct{})
+		go func() {
+			grpcServer.GracefulStop()
+			close(stopped)
+		}()
+		select {
+		case <-stopped:
+			logger.Info("gRPC server stopped gracefully.")
+			return nil
+		case <-time.After(cfg.Shutdown.Timeout):
+			logger.Warn("gRPC server graceful stop timed out. Forcing stop.")
+			grpcServer.Stop()
+			return fmt.Errorf("grpc server graceful stop timed out")
+		}
 	})
 
 	// Start the pprof server if enabled
@@ -108,7 +120,7 @@ func run(ctx context.Context) error {
 		g.Go(func() error {
 			<-gCtx.Done()
 			logger.Info("Shutting down pprof server...")
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Shutdown.Timeout)
 			defer cancel()
 			return pprofServer.Shutdown(shutdownCtx)
 		})
@@ -143,9 +155,9 @@ func newLogger(level string) *slog.Logger {
 }
 
 // newDbPool creates a new database connection pool with the provided context and configuration,
-func newDbPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
+func newDbPool(ctx context.Context, url string, connectTimeout time.Duration) (*pgxpool.Pool, error) {
 	// Create context with timeout for database connection
-	poolCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	poolCtx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 
 	dbPool, errPool := pgxpool.New(poolCtx, url)
