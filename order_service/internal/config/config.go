@@ -55,32 +55,34 @@ type Config struct {
 }
 
 func (c *Config) String() string {
-	return fmt.Sprintf("\n server.port = %d\n server.maxHeaderBytes = %d\n server.timeout.read = %v\n server.timeout.write = %v\n"+
-		" server.timeout.idle = %v\n server.timeout.readHeader = %v\n"+
-		" database_url = %s\n"+
-		" database_connecttimeout = %s\n"+
-		" log_level = %s\n pprof_enabled = %t\n"+
-		" pprof_address = %s\n"+
-		" services.product.grpc.addr = %s\n"+
-		" nats.url = %s"+
-		" nats.dialtimeout = %s"+
-		" shutdown.timeout = %s",
-		c.HTTPServer.Port,
-		c.HTTPServer.MaxHeaderBytes,
-		c.HTTPServer.Timeout.Read,
-		c.HTTPServer.Timeout.Write,
-		c.HTTPServer.Timeout.Idle,
-		c.HTTPServer.Timeout.ReadHeader,
-		maskURL(c.Database.URL),
-		c.Database.Timeout,
-		c.Log.Level,
-		c.PProf.Enabled,
-		c.PProf.Addr,
-		c.Services.Product.Grpc.Addr,
-		c.Nats.Url,
-		c.Nats.Timeout,
-		c.Shutdown.Timeout,
-	)
+	var b strings.Builder
+
+	b.WriteString("\n--- Server Configuration ---\n")
+	b.WriteString(fmt.Sprintf("  server.port: %d\n", c.HTTPServer.Port))
+	b.WriteString(fmt.Sprintf("  server.maxHeaderBytes: %d\n", c.HTTPServer.MaxHeaderBytes))
+	b.WriteString(fmt.Sprintf("  server.timeout.read: %v\n", c.HTTPServer.Timeout.Read))
+	b.WriteString(fmt.Sprintf("  server.timeout.write: %v\n", c.HTTPServer.Timeout.Write))
+	b.WriteString(fmt.Sprintf("  server.timeout.idle: %v\n", c.HTTPServer.Timeout.Idle))
+	b.WriteString(fmt.Sprintf("  server.timeout.readHeader: %v\n", c.HTTPServer.Timeout.ReadHeader))
+
+	b.WriteString("\n--- Database Configuration ---\n")
+	b.WriteString(fmt.Sprintf("  database.url: %s\n", maskURL(c.Database.URL)))
+	b.WriteString(fmt.Sprintf("  database.timeout: %s\n", c.Database.Timeout))
+
+	b.WriteString("\n--- External Services ---\n")
+	b.WriteString(fmt.Sprintf("  services.product.grpc.addr: %s\n", c.Services.Product.Grpc.Addr))
+	b.WriteString(fmt.Sprintf("  nats.url: %s\n", c.Nats.Url))
+	b.WriteString(fmt.Sprintf("  nats.timeout: %s\n", c.Nats.Timeout))
+
+	b.WriteString("\n--- Observability & Logging ---\n")
+	b.WriteString(fmt.Sprintf("  log.level: %s\n", c.Log.Level))
+	b.WriteString(fmt.Sprintf("  pprof.enabled: %t\n", c.PProf.Enabled))
+	b.WriteString(fmt.Sprintf("  pprof.address: %s\n", c.PProf.Addr))
+
+	b.WriteString("\n--- Application Behavior ---\n")
+	b.WriteString(fmt.Sprintf("  shutdown.timeout: %s\n", c.Shutdown.Timeout))
+
+	return b.String()
 }
 
 func maskURL(url string) string {

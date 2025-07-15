@@ -23,7 +23,8 @@ type Config struct {
 	} `koanf:"server"`
 
 	Database struct {
-		URL string `koanf:"url"`
+		URL     string        `koanf:"url"`
+		Timeout time.Duration `koanf:"timeout"`
 	} `koanf:"database"`
 
 	Log struct {
@@ -39,25 +40,40 @@ type Config struct {
 		Port              string `koanf:"port"`
 		ReflectionEnabled bool   `koanf:"reflection"`
 	} `koanf:"grpc"`
+
+	Shutdown struct {
+		Timeout time.Duration `koanf:"timeout"`
+	} `koanf:"shutdown"`
 }
 
 func (c *Config) String() string {
-	return fmt.Sprintf("\n server.port = %d\n server.maxHeaderBytes = %d\n server.timeout.read = %v\n server.timeout.write = %v\n"+
-		" server.timeout.idle = %v\n server.timeout.readHeader = %v\n database_url = %s\n log_level = %s\n pprof_enabled = %t\n"+
-		" pprof_address = %s\n grpc_port=%s\n reflection_enabled = %t",
-		c.HTTPServer.Port,
-		c.HTTPServer.MaxHeaderBytes,
-		c.HTTPServer.Timeout.Read,
-		c.HTTPServer.Timeout.Write,
-		c.HTTPServer.Timeout.Idle,
-		c.HTTPServer.Timeout.ReadHeader,
-		maskURL(c.Database.URL),
-		c.Log.Level,
-		c.PProf.Enabled,
-		c.PProf.Addr,
-		c.GRPC.Port,
-		c.GRPC.ReflectionEnabled,
-	)
+	var b strings.Builder
+
+	b.WriteString("\n--- Server Configuration ---\n")
+	b.WriteString(fmt.Sprintf("  server.port: %d\n", c.HTTPServer.Port))
+	b.WriteString(fmt.Sprintf("  server.maxHeaderBytes: %d\n", c.HTTPServer.MaxHeaderBytes))
+	b.WriteString(fmt.Sprintf("  server.timeout.read: %v\n", c.HTTPServer.Timeout.Read))
+	b.WriteString(fmt.Sprintf("  server.timeout.write: %v\n", c.HTTPServer.Timeout.Write))
+	b.WriteString(fmt.Sprintf("  server.timeout.idle: %v\n", c.HTTPServer.Timeout.Idle))
+	b.WriteString(fmt.Sprintf("  server.timeout.readHeader: %v\n", c.HTTPServer.Timeout.ReadHeader))
+
+	b.WriteString("\n--- Database Configuration ---\n")
+	b.WriteString(fmt.Sprintf("  database.url: %s\n", maskURL(c.Database.URL)))
+	b.WriteString(fmt.Sprintf("  database.connect_timeout: %s\n", c.Database.Timeout))
+
+	b.WriteString("\n--- gRPC Configuration ---\n")
+	b.WriteString(fmt.Sprintf("  grpc.port: %s\n", c.GRPC.Port))
+	b.WriteString(fmt.Sprintf("  grpc.reflection_enabled: %t\n", c.GRPC.ReflectionEnabled))
+
+	b.WriteString("\n--- Observability & Logging ---\n")
+	b.WriteString(fmt.Sprintf("  log.level: %s\n", c.Log.Level))
+	b.WriteString(fmt.Sprintf("  pprof.enabled: %t\n", c.PProf.Enabled))
+	b.WriteString(fmt.Sprintf("  pprof.address: %s\n", c.PProf.Addr))
+
+	b.WriteString("\n--- Application Behavior ---\n")
+	b.WriteString(fmt.Sprintf("  shutdown.timeout: %s\n", c.Shutdown.Timeout))
+
+	return b.String()
 }
 
 func maskURL(url string) string {
