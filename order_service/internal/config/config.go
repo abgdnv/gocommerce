@@ -23,7 +23,8 @@ type Config struct {
 	} `koanf:"server"`
 
 	Database struct {
-		URL string `koanf:"url"`
+		URL            string        `koanf:"url"`
+		ConnectTimeout time.Duration `koanf:"timeout"`
 	} `koanf:"database"`
 
 	Log struct {
@@ -38,8 +39,7 @@ type Config struct {
 	Services struct {
 		Product struct {
 			Grpc struct {
-				Addr    string        `koanf:"addr"`
-				Timeout time.Duration `koanf:"timeout"`
+				Addr string `koanf:"addr"`
 			} `koanf:"grpc"`
 		} `koanf:"product"`
 	} `koanf:"services"`
@@ -48,16 +48,23 @@ type Config struct {
 		Url         string        `koanf:"url"`
 		DialTimeout time.Duration `koanf:"timeout"`
 	} `koanf:"nats"`
+
+	Shutdown struct {
+		Timeout time.Duration `koanf:"timeout"`
+	} `koanf:"shutdown"`
 }
 
 func (c *Config) String() string {
 	return fmt.Sprintf("\n server.port = %d\n server.maxHeaderBytes = %d\n server.timeout.read = %v\n server.timeout.write = %v\n"+
-		" server.timeout.idle = %v\n server.timeout.readHeader = %v\n database_url = %s\n log_level = %s\n pprof_enabled = %t\n"+
+		" server.timeout.idle = %v\n server.timeout.readHeader = %v\n"+
+		" database_url = %s\n"+
+		" database_connecttimeout = %s\n"+
+		" log_level = %s\n pprof_enabled = %t\n"+
 		" pprof_address = %s\n"+
-		" services.product.Grpc.Addr = %s\n"+
-		" services.product.Grpc.Timeout = %s"+
+		" services.product.grpc.addr = %s\n"+
 		" nats.url = %s"+
-		" nats.dialtimeout = %s",
+		" nats.dialtimeout = %s"+
+		" shutdown.timeout = %s",
 		c.HTTPServer.Port,
 		c.HTTPServer.MaxHeaderBytes,
 		c.HTTPServer.Timeout.Read,
@@ -65,13 +72,14 @@ func (c *Config) String() string {
 		c.HTTPServer.Timeout.Idle,
 		c.HTTPServer.Timeout.ReadHeader,
 		maskURL(c.Database.URL),
+		c.Database.ConnectTimeout,
 		c.Log.Level,
 		c.PProf.Enabled,
 		c.PProf.Addr,
 		c.Services.Product.Grpc.Addr,
-		c.Services.Product.Grpc.Timeout,
 		c.Nats.Url,
 		c.Nats.DialTimeout,
+		c.Shutdown.Timeout,
 	)
 }
 
@@ -110,20 +118,23 @@ func (c *Config) Validate() error {
 	if !isValidPostgresURL(c.Database.URL) {
 		return fmt.Errorf("database URL must start with 'postgres://': %s", c.Database.URL)
 	}
+	if c.Database.ConnectTimeout <= 0 {
+		return fmt.Errorf("database connect timeout is not configured")
+	}
 	if c.PProf.Enabled && c.PProf.Addr == "" {
 		return fmt.Errorf("pprof is enabled but address is not configured")
 	}
 	if c.Services.Product.Grpc.Addr == "" {
 		return fmt.Errorf("product service gRPC address is not configured")
 	}
-	if c.Services.Product.Grpc.Timeout <= 0 {
-		return fmt.Errorf("product service gRPC timeout is not configured")
-	}
 	if c.Nats.Url == "" {
 		return fmt.Errorf("NATS URL is not configured")
 	}
 	if c.Nats.DialTimeout <= 0 {
 		return fmt.Errorf("nats dial timeout is not configured")
+	}
+	if c.Shutdown.Timeout <= 0 {
+		return fmt.Errorf("shutdown timeout is not configured")
 	}
 	return nil
 }

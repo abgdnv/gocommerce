@@ -49,7 +49,7 @@ func run(ctx context.Context) error {
 	logger := newLogger(cfg.Log.Level)
 	slog.SetDefault(logger)
 
-	dbPool, err := newDbPool(ctx, cfg.Database.URL)
+	dbPool, err := newDbPool(ctx, cfg.Database.URL, cfg.Database.ConnectTimeout)
 	if err != nil {
 		return fmt.Errorf("failed to create database connection pool: %w", err)
 	}
@@ -57,19 +57,11 @@ func run(ctx context.Context) error {
 	logger.Info("Successfully connected to the database!")
 
 	// Create a gRPC client connection to the Product service
-	conn, err := grpc.NewClient(cfg.Services.Product.Grpc.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	grpcClient, err := grpc.NewClient(cfg.Services.Product.Grpc.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("failed to create gRPC client connection: %w", err)
 	}
-	defer func(conn *grpc.ClientConn) {
-		err := conn.Close()
-		if err != nil {
-			logger.Error("Failed to close gRPC client connection", slog.String("error", err.Error()))
-		} else {
-			logger.Info("gRPC client connection closed successfully")
-		}
-	}(conn)
-	productClient := pb.NewProductServiceClient(conn)
+	productClient := pb.NewProductServiceClient(grpcClient)
 
 	natsConn, err := nats.NewClient(cfg.Nats.Url, cfg.Nats.DialTimeout)
 	if err != nil {
@@ -97,7 +89,7 @@ func run(ctx context.Context) error {
 	g.Go(func() error {
 		<-gCtx.Done()
 		logger.Info("Shutting down HTTP server...")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Shutdown.Timeout)
 		defer cancel()
 		return httpServer.Shutdown(shutdownCtx)
 	})
@@ -115,11 +107,34 @@ func run(ctx context.Context) error {
 		g.Go(func() error {
 			<-gCtx.Done()
 			logger.Info("Shutting down pprof server...")
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Shutdown.Timeout)
 			defer cancel()
 			return pprofServer.Shutdown(shutdownCtx)
 		})
 	}
+
+	// gracefully shutdown grpc client
+	g.Go(func() error {
+		<-gCtx.Done()
+		logger.Info("Shutting down grpc client")
+
+		closeDone := make(chan struct{})
+		go func() {
+			err := grpcClient.Close()
+			if err != nil {
+				logger.Error("failed to close gRPC client connection")
+			}
+			close(closeDone)
+		}()
+
+		select {
+		case <-closeDone:
+			logger.Info("gRPC client connection closed successfully")
+			return nil
+		case <-time.After(cfg.Shutdown.Timeout):
+			return fmt.Errorf("failed to close gRPC client connection")
+		}
+	})
 
 	// gracefully shutdown NATS connection on context cancellation
 	g.Go(func() error {
@@ -138,7 +153,7 @@ func run(ctx context.Context) error {
 		case <-drainDone:
 			logger.Info("NATS connection drained successfully.")
 			return nil
-		case <-time.After(5 * time.Second):
+		case <-time.After(cfg.Shutdown.Timeout):
 			return fmt.Errorf("nats drain timeout")
 		}
 	})
@@ -172,9 +187,9 @@ func newLogger(level string) *slog.Logger {
 }
 
 // newDbPool creates a new database connection pool with the provided context and configuration,
-func newDbPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
+func newDbPool(ctx context.Context, url string, connectTimeout time.Duration) (*pgxpool.Pool, error) {
 	// Create context with timeout for database connection
-	poolCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	poolCtx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 
 	dbPool, errPool := pgxpool.New(poolCtx, url)

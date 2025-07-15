@@ -8,6 +8,7 @@ server:
     readHeader: 5s
 database:
   url: "postgresql://user:password@localhost:5432/orders_db?sslmode=disable"
+  ConnectTimeout: 10s
 log:
   level: info
 pprof:
@@ -17,7 +18,8 @@ services:
   product:
     Grpc:
       Addr: "localhost:50051"
-      Timeout: 2s
 nats:
   url: "nats://localhost:4222"
   DialTimeout: 2s
+shutdown:
+  timeout: 5s
