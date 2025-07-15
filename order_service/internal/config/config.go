@@ -43,6 +43,11 @@ type Config struct {
 			} `koanf:"grpc"`
 		} `koanf:"product"`
 	} `koanf:"services"`
+
+	Nats struct {
+		Url         string        `koanf:"url"`
+		DialTimeout time.Duration `koanf:"timeout"`
+	} `koanf:"nats"`
 }
 
 func (c *Config) String() string {
@@ -50,7 +55,9 @@ func (c *Config) String() string {
 		" server.timeout.idle = %v\n server.timeout.readHeader = %v\n database_url = %s\n log_level = %s\n pprof_enabled = %t\n"+
 		" pprof_address = %s\n"+
 		" services.product.Grpc.Addr = %s\n"+
-		" services.product.Grpc.Timeout = %s",
+		" services.product.Grpc.Timeout = %s"+
+		" nats.url = %s"+
+		" nats.dialtimeout = %s",
 		c.HTTPServer.Port,
 		c.HTTPServer.MaxHeaderBytes,
 		c.HTTPServer.Timeout.Read,
@@ -63,6 +70,8 @@ func (c *Config) String() string {
 		c.PProf.Addr,
 		c.Services.Product.Grpc.Addr,
 		c.Services.Product.Grpc.Timeout,
+		c.Nats.Url,
+		c.Nats.DialTimeout,
 	)
 }
 
@@ -109,6 +118,12 @@ func (c *Config) Validate() error {
 	}
 	if c.Services.Product.Grpc.Timeout <= 0 {
 		return fmt.Errorf("product service gRPC timeout is not configured")
+	}
+	if c.Nats.Url == "" {
+		return fmt.Errorf("NATS URL is not configured")
+	}
+	if c.Nats.DialTimeout <= 0 {
+		return fmt.Errorf("nats dial timeout is not configured")
 	}
 	return nil
 }

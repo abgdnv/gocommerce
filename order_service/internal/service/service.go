@@ -11,6 +11,8 @@ import (
 	"github.com/abgdnv/gocommerce/order_service/internal/store"
 	"github.com/abgdnv/gocommerce/order_service/internal/store/db"
 	pb "github.com/abgdnv/gocommerce/pkg/api/gen/go/product/v1"
+	"github.com/abgdnv/gocommerce/pkg/messaging"
+	"github.com/abgdnv/gocommerce/pkg/messaging/events"
 
 	"github.com/google/uuid"
 )
@@ -37,17 +39,17 @@ type OrderService interface {
 
 // Service implements OrderService and provides methods to manage orders.
 type Service struct {
-	orderStore           store.OrderStore
-	productClient        pb.ProductServiceClient
-	productClientTimeout time.Duration
+	orderStore    store.OrderStore
+	productClient pb.ProductServiceClient
+	publisher     messaging.Publisher
 }
 
 // NewService creates a new instance of OrderService with the provided orderStore.
-func NewService(orderStore store.OrderStore, productClient pb.ProductServiceClient, productClientTimeout time.Duration) *Service {
+func NewService(orderStore store.OrderStore, productClient pb.ProductServiceClient, publisher messaging.Publisher) *Service {
 	return &Service{
-		orderStore:           orderStore,
-		productClient:        productClient,
-		productClientTimeout: productClientTimeout,
+		orderStore:    orderStore,
+		productClient: productClient,
+		publisher:     publisher,
 	}
 }
 
@@ -133,9 +135,8 @@ func (s *Service) Create(ctx context.Context, order OrderCreateDto) (*OrderDto, 
 		Status: order.Status,
 	}
 
+	var totalPrice int64
 	// Check if the products exist and has sufficient stock.
-	ctx, cancel := context.WithTimeout(ctx, s.productClientTimeout)
-	defer cancel()
 	orderItems := make([]db.CreateOrderItemParams, 0, len(order.Items))
 	for _, item := range order.Items {
 		slog.Info("Checking product stock", slog.String("ProductID", item.ProductID.String()))
@@ -157,12 +158,24 @@ func (s *Service) Create(ctx context.Context, order OrderCreateDto) (*OrderDto, 
 			PricePerItem: item.PricePerItem,
 			Price:        item.Price,
 		})
+		totalPrice += item.Price * int64(item.Quantity)
 
 	}
 
 	createOrder, items, err := s.orderStore.CreateOrder(ctx, &orderParams, &orderItems)
 	if err != nil {
 		return nil, err
+	}
+
+	event := events.OrderCreatedEvent{
+		OrderID:    createOrder.ID,
+		UserID:     createOrder.UserID,
+		TotalPrice: totalPrice,
+		CreatedAt:  *createOrder.CreatedAt,
+	}
+	err = s.publisher.Publish(ctx, event)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to publish OrderCreatedEvent", "error", err)
 	}
 
 	return toDto(createOrder, items), nil

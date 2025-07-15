@@ -4,14 +4,15 @@ package app
 import (
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/abgdnv/gocommerce/order_service/internal/config"
 	"github.com/abgdnv/gocommerce/order_service/internal/service"
 	"github.com/abgdnv/gocommerce/order_service/internal/store"
 	"github.com/abgdnv/gocommerce/order_service/internal/transport/rest"
 	pb "github.com/abgdnv/gocommerce/pkg/api/gen/go/product/v1"
+	"github.com/abgdnv/gocommerce/pkg/nats"
 	"github.com/abgdnv/gocommerce/pkg/server"
+	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,8 +23,9 @@ type Dependencies struct {
 	Logger       *slog.Logger
 }
 
-func SetupDependencies(dbPool *pgxpool.Pool, productClient pb.ProductServiceClient, productClientTimeout time.Duration, logger *slog.Logger) *Dependencies {
-	pService := service.NewService(store.NewPgStore(dbPool), productClient, productClientTimeout)
+func SetupDependencies(dbPool *pgxpool.Pool, productClient pb.ProductServiceClient, js jetstream.JetStream, logger *slog.Logger) *Dependencies {
+	publisher := nats.NewNatsPublisher(js)
+	pService := service.NewService(store.NewPgStore(dbPool), productClient, publisher)
 
 	return &Dependencies{
 		OrderService: pService,

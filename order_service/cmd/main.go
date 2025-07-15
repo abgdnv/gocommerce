@@ -12,6 +12,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/abgdnv/gocommerce/pkg/nats"
+	"github.com/nats-io/nats.go/jetstream"
+
 	"github.com/abgdnv/gocommerce/order_service/internal/app"
 	"github.com/abgdnv/gocommerce/order_service/internal/config"
 	pb "github.com/abgdnv/gocommerce/pkg/api/gen/go/product/v1"
@@ -68,8 +71,17 @@ func run(ctx context.Context) error {
 	}(conn)
 	productClient := pb.NewProductServiceClient(conn)
 
+	natsConn, err := nats.NewClient(cfg.Nats.Url, cfg.Nats.DialTimeout)
+	if err != nil {
+		return fmt.Errorf("failed to create NATS connection: %w", err)
+	}
+	js, err := nats.NewJetStreamContext(natsConn)
+	if err != nil {
+		return fmt.Errorf("failed to get JetStream context: %w", err)
+	}
+
 	// Set up HTTP and pprof servers
-	httpServer, pprofServer := setupServers(dbPool, productClient, logger, cfg)
+	httpServer, pprofServer := setupServers(dbPool, productClient, js, logger, cfg)
 
 	g, gCtx := errgroup.WithContext(ctx)
 
@@ -108,6 +120,29 @@ func run(ctx context.Context) error {
 			return pprofServer.Shutdown(shutdownCtx)
 		})
 	}
+
+	// gracefully shutdown NATS connection on context cancellation
+	g.Go(func() error {
+		<-gCtx.Done()
+		logger.Info("Draining NATS connection...")
+
+		drainDone := make(chan struct{})
+		go func() {
+			if err := natsConn.Drain(); err != nil {
+				logger.Error("failed to drain nats connection", "error", err)
+			}
+			close(drainDone)
+		}()
+
+		select {
+		case <-drainDone:
+			logger.Info("NATS connection drained successfully.")
+			return nil
+		case <-time.After(5 * time.Second):
+			return fmt.Errorf("nats drain timeout")
+		}
+	})
+
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return fmt.Errorf("errgroup encountered an error: %w", err)
 	}
@@ -115,8 +150,8 @@ func run(ctx context.Context) error {
 }
 
 // setupServers initializes the HTTP, pprof, and gRPC servers with the provided database pool, logger, and configuration.
-func setupServers(dbPool *pgxpool.Pool, productClient pb.ProductServiceClient, logger *slog.Logger, cfg *config.Config) (*http.Server, *http.Server) {
-	deps := app.SetupDependencies(dbPool, productClient, cfg.Services.Product.Grpc.Timeout, logger)
+func setupServers(dbPool *pgxpool.Pool, productClient pb.ProductServiceClient, js jetstream.JetStream, logger *slog.Logger, cfg *config.Config) (*http.Server, *http.Server) {
+	deps := app.SetupDependencies(dbPool, productClient, js, logger)
 	httpServer := app.SetupHttpServer(deps, cfg)
 	pprofServer := &http.Server{
 		Addr: cfg.PProf.Addr,
