@@ -3,47 +3,20 @@ package config
 import (
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/abgdnv/gocommerce/pkg/configloader"
+	"github.com/abgdnv/gocommerce/pkg/config"
+	"github.com/abgdnv/gocommerce/pkg/config/configloader"
 )
 
 var _ configloader.Validator = (*Config)(nil)
 
 type Config struct {
-	HTTPServer struct {
-		Port           int `koanf:"port"`
-		MaxHeaderBytes int `koanf:"maxHeaderBytes"`
-		Timeout        struct {
-			Read       time.Duration `koanf:"read"`
-			Write      time.Duration `koanf:"write"`
-			Idle       time.Duration `koanf:"idle"`
-			ReadHeader time.Duration `koanf:"readHeader"`
-		} `koanf:"timeout"`
-	} `koanf:"server"`
-
-	Database struct {
-		URL     string        `koanf:"url"`
-		Timeout time.Duration `koanf:"timeout"`
-	} `koanf:"database"`
-
-	Log struct {
-		Level string `koanf:"level"`
-	} `koanf:"log"`
-
-	PProf struct {
-		Enabled bool   `koanf:"enabled"`
-		Addr    string `koanf:"addr"`
-	} `koanf:"pprof"`
-
-	GRPC struct {
-		Port              string `koanf:"port"`
-		ReflectionEnabled bool   `koanf:"reflection"`
-	} `koanf:"grpc"`
-
-	Shutdown struct {
-		Timeout time.Duration `koanf:"timeout"`
-	} `koanf:"shutdown"`
+	HTTPServer config.HTTPConfig       `koanf:"server"`
+	Database   config.DatabaseConfig   `koanf:"database"`
+	Log        config.LogConfig        `koanf:"log"`
+	PProf      config.PProfConfig      `koanf:"pprof"`
+	GRPC       config.GrpcServerConfig `koanf:"grpc"`
+	Shutdown   config.ShutdownConfig   `koanf:"shutdown"`
 }
 
 func (c *Config) String() string {
@@ -59,7 +32,7 @@ func (c *Config) String() string {
 
 	b.WriteString("\n--- Database Configuration ---\n")
 	b.WriteString(fmt.Sprintf("  database.url: %s\n", maskURL(c.Database.URL)))
-	b.WriteString(fmt.Sprintf("  database.connect_timeout: %s\n", c.Database.Timeout))
+	b.WriteString(fmt.Sprintf("  database.connect.timeout: %s\n", c.Database.Timeout))
 
 	b.WriteString("\n--- gRPC Configuration ---\n")
 	b.WriteString(fmt.Sprintf("  grpc.port: %s\n", c.GRPC.Port))
@@ -90,38 +63,23 @@ func maskURL(url string) string {
 
 // Validate checks if the configuration values are valid
 func (c *Config) Validate() error {
-	if c.HTTPServer.Port <= 0 || c.HTTPServer.Port > 65535 {
-		return fmt.Errorf("invalid HTTP server port: %d", c.HTTPServer.Port)
+	if err := c.HTTPServer.Validate(); err != nil {
+		return err
 	}
-	if c.HTTPServer.Timeout.Read <= 0 {
-		return fmt.Errorf("invalid HTTP server read timeout: %v", c.HTTPServer.Timeout.Read)
+	if err := c.Database.Validate(); err != nil {
+		return err
 	}
-	if c.HTTPServer.Timeout.Write <= 0 {
-		return fmt.Errorf("invalid HTTP server write timeout: %v", c.HTTPServer.Timeout.Write)
+	if err := c.Log.Validate(); err != nil {
+		return err
 	}
-	if c.HTTPServer.Timeout.Idle <= 0 {
-		return fmt.Errorf("invalid HTTP server idle timeout: %v", c.HTTPServer.Timeout.Idle)
+	if err := c.PProf.Validate(); err != nil {
+		return err
 	}
-	if c.HTTPServer.Timeout.ReadHeader <= 0 {
-		return fmt.Errorf("invalid HTTP server read header timeout: %v", c.HTTPServer.Timeout.ReadHeader)
+	if err := c.Shutdown.Validate(); err != nil {
+		return nil
 	}
-	if c.Database.URL == "" {
-		return fmt.Errorf("database URL is not configured")
-	}
-	if !isValidPostgresURL(c.Database.URL) {
-		return fmt.Errorf("database URL must start with 'postgres://': %s", c.Database.URL)
-	}
-	if c.PProf.Enabled && c.PProf.Addr == "" {
-		return fmt.Errorf("pprof is enabled but address is not configured")
-	}
-	if c.GRPC.Port == "" {
-		return fmt.Errorf("gRPC port is not configured")
+	if err := c.GRPC.Validate(); err != nil {
+		return err
 	}
 	return nil
-}
-
-// isValidPostgresURL checks if the provided URL is a valid PostgreSQL URL
-func isValidPostgresURL(url string) bool {
-	return strings.HasPrefix(url, "postgres://") ||
-		strings.HasPrefix(url, "postgresql://")
 }

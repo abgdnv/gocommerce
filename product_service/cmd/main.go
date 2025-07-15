@@ -16,7 +16,7 @@ import (
 
 	_ "net/http/pprof"
 
-	"github.com/abgdnv/gocommerce/pkg/configloader"
+	"github.com/abgdnv/gocommerce/pkg/config/configloader"
 	"github.com/abgdnv/gocommerce/product_service/internal/app"
 	"github.com/abgdnv/gocommerce/product_service/internal/config"
 	"github.com/jackc/pgx/v5/pgxpool"

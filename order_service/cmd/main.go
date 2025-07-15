@@ -18,7 +18,7 @@ import (
 	"github.com/abgdnv/gocommerce/order_service/internal/app"
 	"github.com/abgdnv/gocommerce/order_service/internal/config"
 	pb "github.com/abgdnv/gocommerce/pkg/api/gen/go/product/v1"
-	"github.com/abgdnv/gocommerce/pkg/configloader"
+	"github.com/abgdnv/gocommerce/pkg/config/configloader"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"

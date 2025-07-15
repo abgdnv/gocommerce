@@ -3,55 +3,25 @@ package config
 import (
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/abgdnv/gocommerce/pkg/configloader"
+	"github.com/abgdnv/gocommerce/pkg/config"
+	"github.com/abgdnv/gocommerce/pkg/config/configloader"
 )
 
 var _ configloader.Validator = (*Config)(nil)
 
 type Config struct {
-	HTTPServer struct {
-		Port           int `koanf:"port"`
-		MaxHeaderBytes int `koanf:"maxHeaderBytes"`
-		Timeout        struct {
-			Read       time.Duration `koanf:"read"`
-			Write      time.Duration `koanf:"write"`
-			Idle       time.Duration `koanf:"idle"`
-			ReadHeader time.Duration `koanf:"readHeader"`
-		} `koanf:"timeout"`
-	} `koanf:"server"`
-
-	Database struct {
-		URL     string        `koanf:"url"`
-		Timeout time.Duration `koanf:"timeout"`
-	} `koanf:"database"`
-
-	Log struct {
-		Level string `koanf:"level"`
-	} `koanf:"log"`
-
-	PProf struct {
-		Enabled bool   `koanf:"enabled"`
-		Addr    string `koanf:"addr"`
-	} `koanf:"pprof"`
-
-	Services struct {
+	HTTPServer config.HTTPConfig     `koanf:"server"`
+	Database   config.DatabaseConfig `koanf:"database"`
+	Log        config.LogConfig      `koanf:"log"`
+	PProf      config.PProfConfig    `koanf:"pprof"`
+	Nats       config.NATSConfig     `koanf:"nats"`
+	Shutdown   config.ShutdownConfig `koanf:"shutdown"`
+	Services   struct {
 		Product struct {
-			Grpc struct {
-				Addr string `koanf:"addr"`
-			} `koanf:"grpc"`
+			Grpc config.GrpcClientConfig `koanf:"grpc"`
 		} `koanf:"product"`
 	} `koanf:"services"`
-
-	Nats struct {
-		Url     string        `koanf:"url"`
-		Timeout time.Duration `koanf:"timeout"`
-	} `koanf:"nats"`
-
-	Shutdown struct {
-		Timeout time.Duration `koanf:"timeout"`
-	} `koanf:"shutdown"`
 }
 
 func (c *Config) String() string {
@@ -99,50 +69,27 @@ func maskURL(url string) string {
 
 // Validate checks if the configuration values are valid
 func (c *Config) Validate() error {
-	if c.HTTPServer.Port <= 0 || c.HTTPServer.Port > 65535 {
-		return fmt.Errorf("invalid HTTP server port: %d", c.HTTPServer.Port)
+	if err := c.HTTPServer.Validate(); err != nil {
+		return err
 	}
-	if c.HTTPServer.Timeout.Read <= 0 {
-		return fmt.Errorf("invalid HTTP server read timeout: %v", c.HTTPServer.Timeout.Read)
+	if err := c.Database.Validate(); err != nil {
+		return err
 	}
-	if c.HTTPServer.Timeout.Write <= 0 {
-		return fmt.Errorf("invalid HTTP server write timeout: %v", c.HTTPServer.Timeout.Write)
+	if err := c.Log.Validate(); err != nil {
+		return err
 	}
-	if c.HTTPServer.Timeout.Idle <= 0 {
-		return fmt.Errorf("invalid HTTP server idle timeout: %v", c.HTTPServer.Timeout.Idle)
+	if err := c.PProf.Validate(); err != nil {
+		return err
 	}
-	if c.HTTPServer.Timeout.ReadHeader <= 0 {
-		return fmt.Errorf("invalid HTTP server read header timeout: %v", c.HTTPServer.Timeout.ReadHeader)
+	if err := c.Nats.Validate(); err != nil {
+		return err
 	}
-	if c.Database.URL == "" {
-		return fmt.Errorf("database URL is not configured")
+	if err := c.Shutdown.Validate(); err != nil {
+		return err
 	}
-	if !isValidPostgresURL(c.Database.URL) {
-		return fmt.Errorf("database URL must start with 'postgres://': %s", c.Database.URL)
+	if err := c.Services.Product.Grpc.Validate(); err != nil {
+		return err
 	}
-	if c.Database.Timeout <= 0 {
-		return fmt.Errorf("database connect timeout is not configured")
-	}
-	if c.PProf.Enabled && c.PProf.Addr == "" {
-		return fmt.Errorf("pprof is enabled but address is not configured")
-	}
-	if c.Services.Product.Grpc.Addr == "" {
-		return fmt.Errorf("product service gRPC address is not configured")
-	}
-	if c.Nats.Url == "" {
-		return fmt.Errorf("NATS URL is not configured")
-	}
-	if c.Nats.Timeout <= 0 {
-		return fmt.Errorf("nats dial timeout is not configured")
-	}
-	if c.Shutdown.Timeout <= 0 {
-		return fmt.Errorf("shutdown timeout is not configured")
-	}
-	return nil
-}
 
-// isValidPostgresURL checks if the provided URL is a valid PostgreSQL URL
-func isValidPostgresURL(url string) bool {
-	return strings.HasPrefix(url, "postgres://") ||
-		strings.HasPrefix(url, "postgresql://")
+	return nil
 }
