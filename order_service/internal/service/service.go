@@ -135,30 +135,40 @@ func (s *Service) Create(ctx context.Context, order OrderCreateDto) (*OrderDto, 
 		Status: order.Status,
 	}
 
-	var totalPrice int64
 	// Check if the products exist and has sufficient stock.
-	orderItems := make([]db.CreateOrderItemParams, 0, len(order.Items))
+	products := make(map[string]OrderItemCreateDto)
 	for _, item := range order.Items {
-		slog.Info("Checking product stock", slog.String("ProductID", item.ProductID.String()))
-		productResp, err := s.productClient.GetProduct(ctx, &pb.GetProductRequest{Id: item.ProductID.String()})
-		if err != nil {
-			slog.ErrorContext(ctx, "Failed to get product info from Product service", "error", err)
-			return nil, err
-		}
-		stockQuantity := productResp.GetProduct().GetStockQuantity()
-		if stockQuantity < item.Quantity {
-			message := fmt.Sprintf("product %s. Available: %d, Requested: %d", item.ProductID.String(), stockQuantity, item.Quantity)
+		products[item.ProductID.String()] = item
+	}
+	ids := make([]string, 0, len(order.Items))
+	for k := range products {
+		ids = append(ids, k)
+	}
+	slog.Info("Checking products stock", "products", ids)
+	productResp, err := s.productClient.GetProduct(ctx, &pb.GetProductRequest{Products: ids})
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to get product info from Product service", "error", err)
+		return nil, err
+	}
+
+	var totalPrice, price int64
+	orderItems := make([]db.CreateOrderItemParams, 0, len(order.Items))
+	for _, resp := range productResp.Products {
+		available := resp.StockQuantity
+		requested := products[resp.Id].Quantity
+		if available < requested {
+			message := fmt.Sprintf("product %s. Available: %d, Requested: %d", resp.Id, available, requested)
 			slog.WarnContext(ctx, fmt.Sprintf("Insufficient stock for %s", message))
 			return nil, fmt.Errorf("%s: %w", message, ordererrors.ErrInsufficientStock)
 		}
+		price = resp.Price * int64(requested)
 		orderItems = append(orderItems, db.CreateOrderItemParams{
-			ProductID:    item.ProductID,
-			Quantity:     item.Quantity,
-			PricePerItem: item.PricePerItem,
-			Price:        item.Price,
+			ProductID:    products[resp.Id].ProductID,
+			Quantity:     requested,
+			PricePerItem: resp.Price,
+			Price:        price,
 		})
-		totalPrice += item.Price * int64(item.Quantity)
-
+		totalPrice += price
 	}
 
 	createOrder, items, err := s.orderStore.CreateOrder(ctx, &orderParams, &orderItems)

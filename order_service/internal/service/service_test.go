@@ -297,13 +297,13 @@ func Test_OrderService_Create(t *testing.T) {
 			},
 			productClient: &ProductServiceClientMock{
 				productResponse: &pb.GetProductResponse{
-					Product: &pb.Product{
+					Products: []*pb.Product{{
 						Id:            ProductID.String(),
 						Name:          "Test Product",
 						Price:         100,
 						StockQuantity: 10,
 						Version:       1,
-					},
+					}},
 				},
 				error: nil,
 			},
@@ -322,13 +322,13 @@ func Test_OrderService_Create(t *testing.T) {
 			},
 			productClient: &ProductServiceClientMock{
 				productResponse: &pb.GetProductResponse{
-					Product: &pb.Product{
+					Products: []*pb.Product{{
 						Id:            ProductID.String(),
 						Name:          "Test Product",
 						Price:         100,
 						StockQuantity: 10,
 						Version:       1,
-					},
+					}},
 				},
 				error: nil,
 			},
@@ -345,13 +345,13 @@ func Test_OrderService_Create(t *testing.T) {
 			},
 			productClient: &ProductServiceClientMock{
 				productResponse: &pb.GetProductResponse{
-					Product: &pb.Product{
+					Products: []*pb.Product{{
 						Id:            ProductID.String(),
 						Name:          "Test Product",
 						Price:         100,
 						StockQuantity: 1,
 						Version:       1,
-					},
+					}},
 				},
 				error: nil,
 			},
@@ -363,13 +363,13 @@ func Test_OrderService_Create(t *testing.T) {
 			name: "Error - insufficient stock",
 			productClient: &ProductServiceClientMock{
 				productResponse: &pb.GetProductResponse{
-					Product: &pb.Product{
+					Products: []*pb.Product{{
 						Id:            ProductID.String(),
 						Name:          "Test Product",
 						Price:         100,
 						StockQuantity: 1,
 						Version:       1,
-					},
+					}},
 				},
 				error: nil,
 			},

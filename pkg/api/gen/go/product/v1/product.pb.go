@@ -23,7 +23,7 @@ const (
 
 type GetProductRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Products      []string               `protobuf:"bytes,1,rep,name=products,proto3" json:"products,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -58,16 +58,16 @@ func (*GetProductRequest) Descriptor() ([]byte, []int) {
 	return file_product_v1_product_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *GetProductRequest) GetId() string {
+func (x *GetProductRequest) GetProducts() []string {
 	if x != nil {
-		return x.Id
+		return x.Products
 	}
-	return ""
+	return nil
 }
 
 type GetProductResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Product       *Product               `protobuf:"bytes,1,opt,name=product,proto3" json:"product,omitempty"`
+	Products      []*Product             `protobuf:"bytes,1,rep,name=products,proto3" json:"products,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -102,9 +102,9 @@ func (*GetProductResponse) Descriptor() ([]byte, []int) {
 	return file_product_v1_product_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *GetProductResponse) GetProduct() *Product {
+func (x *GetProductResponse) GetProducts() []*Product {
 	if x != nil {
-		return x.Product
+		return x.Products
 	}
 	return nil
 }
@@ -190,11 +190,11 @@ var File_product_v1_product_proto protoreflect.FileDescriptor
 const file_product_v1_product_proto_rawDesc = "" +
 	"\n" +
 	"\x18product/v1/product.proto\x12\n" +
-	"product.v1\"#\n" +
-	"\x11GetProductRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"C\n" +
-	"\x12GetProductResponse\x12-\n" +
-	"\aproduct\x18\x01 \x01(\v2\x13.product.v1.ProductR\aproduct\"\x84\x01\n" +
+	"product.v1\"/\n" +
+	"\x11GetProductRequest\x12\x1a\n" +
+	"\bproducts\x18\x01 \x03(\tR\bproducts\"E\n" +
+	"\x12GetProductResponse\x12/\n" +
+	"\bproducts\x18\x01 \x03(\v2\x13.product.v1.ProductR\bproducts\"\x84\x01\n" +
 	"\aProduct\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -224,7 +224,7 @@ var file_product_v1_product_proto_goTypes = []any{
 	(*Product)(nil),            // 2: product.v1.Product
 }
 var file_product_v1_product_proto_depIdxs = []int32{
-	2, // 0: product.v1.GetProductResponse.product:type_name -> product.v1.Product
+	2, // 0: product.v1.GetProductResponse.products:type_name -> product.v1.Product
 	0, // 1: product.v1.ProductService.GetProduct:input_type -> product.v1.GetProductRequest
 	1, // 2: product.v1.ProductService.GetProduct:output_type -> product.v1.GetProductResponse
 	2, // [2:3] is the sub-list for method output_type

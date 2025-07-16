@@ -30,27 +30,31 @@ func NewServer(service ProductService) *Server {
 }
 
 func (s *Server) GetProduct(ctx context.Context, req *pb.GetProductRequest) (*pb.GetProductResponse, error) {
-	id, err := uuid.Parse(req.GetId())
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid product ID: %v", err)
-	}
-	logger := slog.With(slog.String("product_id", id.String()))
-	product, err := s.service.FindByID(ctx, id)
-	if err != nil {
-		if errors.Is(err, perrors.ErrProductNotFound) {
-			return nil, status.Errorf(codes.NotFound, "product with id %s not found", id.String())
+	products := make([]*pb.Product, 0, len(req.Products))
+	for _, item := range req.Products {
+		id, err := uuid.Parse(item)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid product ID: %v", err)
 		}
-		logger.Error("service.FindByID failed", slog.Any("error", err))
-		return nil, status.Errorf(codes.Internal, "internal server error")
-	}
-
-	return &pb.GetProductResponse{
-		Product: &pb.Product{
+		logger := slog.With(slog.String("product_id", id.String()))
+		product, err := s.service.FindByID(ctx, id)
+		if err != nil {
+			if errors.Is(err, perrors.ErrProductNotFound) {
+				return nil, status.Errorf(codes.NotFound, "product with id %s not found", id.String())
+			}
+			logger.Error("service.FindByID failed", slog.Any("error", err))
+			return nil, status.Errorf(codes.Internal, "internal server error")
+		}
+		products = append(products, &pb.Product{
 			Id:            product.ID,
 			Name:          product.Name,
 			Price:         product.Price,
 			StockQuantity: product.Stock,
 			Version:       product.Version,
-		},
+		})
+	}
+
+	return &pb.GetProductResponse{
+		Products: products,
 	}, nil
 }

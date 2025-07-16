@@ -68,17 +68,17 @@ func TestProductService_GetProduct(t *testing.T) {
 			mockSvc.On("FindByID", mock.Anything, productID).Return(tc.mockProduct, tc.mockError)
 
 			// when
-			req := &pb.GetProductRequest{Id: productID.String()}
+			req := &pb.GetProductRequest{Products: []string{productID.String()}}
 			res, err := server.GetProduct(ctx, req)
 
 			// then
 			if tc.expectedCode == codes.OK {
 				require.NoError(t, err)
 				require.NotNil(t, res)
-				require.Equal(t, tc.mockProduct.ID, res.Product.Id)
-				require.Equal(t, tc.mockProduct.Name, res.Product.Name)
-				require.Equal(t, tc.mockProduct.Price, res.Product.Price)
-				require.Equal(t, tc.mockProduct.Stock, res.Product.StockQuantity)
+				require.Equal(t, tc.mockProduct.ID, res.Products[0].Id)
+				require.Equal(t, tc.mockProduct.Name, res.Products[0].Name)
+				require.Equal(t, tc.mockProduct.Price, res.Products[0].Price)
+				require.Equal(t, tc.mockProduct.Stock, res.Products[0].StockQuantity)
 			} else {
 				require.Nil(t, res)
 				require.Error(t, err)
@@ -95,7 +95,7 @@ func TestProductService_GetProduct(t *testing.T) {
 		mockSvc := new(MockProductService)
 		server := NewServer(mockSvc)
 
-		req := &pb.GetProductRequest{Id: "this-is-not-a-uuid"}
+		req := &pb.GetProductRequest{Products: []string{"this-is-not-a-uuid"}}
 
 		// when
 		_, err := server.GetProduct(ctx, req)

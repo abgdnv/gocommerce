@@ -9,11 +9,11 @@ service ProductService {
 }
 
 message GetProductRequest {
-  string id = 1;
+  repeated string products = 1;
 }
 
 message GetProductResponse {
-  Product product = 1;
+  repeated Product products = 1;
 }
 
 message Product {
