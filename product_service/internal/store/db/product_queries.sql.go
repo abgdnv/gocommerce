@@ -118,6 +118,38 @@ func (q *Queries) FindByID(ctx context.Context, id uuid.UUID) (Product, error) {
 	return i, err
 }
 
+const findByIDs = `-- name: FindByIDs :many
+SELECT id, name, price, stock_quantity, version, created_at FROM products
+WHERE id = ANY($1::uuid[])
+`
+
+func (q *Queries) FindByIDs(ctx context.Context, ids []uuid.UUID) ([]Product, error) {
+	rows, err := q.db.Query(ctx, findByIDs, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Product{}
+	for rows.Next() {
+		var i Product
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Price,
+			&i.StockQuantity,
+			&i.Version,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const update = `-- name: Update :one
 UPDATE products
 SET name           = $2,

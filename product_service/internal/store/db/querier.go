@@ -15,6 +15,7 @@ type Querier interface {
 	Delete(ctx context.Context, arg DeleteParams) (int64, error)
 	FindAll(ctx context.Context, arg FindAllParams) ([]Product, error)
 	FindByID(ctx context.Context, id uuid.UUID) (Product, error)
+	FindByIDs(ctx context.Context, ids []uuid.UUID) ([]Product, error)
 	Update(ctx context.Context, arg UpdateParams) (Product, error)
 	UpdateStock(ctx context.Context, arg UpdateStockParams) (Product, error)
 }

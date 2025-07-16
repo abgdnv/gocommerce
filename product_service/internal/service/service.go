@@ -17,9 +17,13 @@ type ProductService interface {
 	// Returns ErrProductNotFound if no product exists with the given ID.
 	FindByID(ctx context.Context, id uuid.UUID) (*ProductDto, error)
 
+	// FindByIDs returns products by IDs.
+	// Returns an empty slice if no products exist.
+	FindByIDs(ctx context.Context, ids []uuid.UUID) ([]ProductDto, error)
+
 	// FindAll returns all available products.
 	// Returns an empty slice if no products exist.
-	FindAll(ctx context.Context, offset, limit int32) (*[]ProductDto, error)
+	FindAll(ctx context.Context, offset, limit int32) ([]ProductDto, error)
 
 	// Create adds a new product to the system.
 	// Returns error if the product cannot be created.
@@ -84,20 +88,36 @@ func (s *Service) FindByID(ctx context.Context, id uuid.UUID) (*ProductDto, erro
 	return toDto(product), nil
 }
 
+// FindByIDs retrieves a list of products and returns them as ProductDTOs.
+// Returns an empty slice if no products exist or error if the retrieval fails.
+func (s *Service) FindByIDs(ctx context.Context, ids []uuid.UUID) ([]ProductDto, error) {
+	products, err := s.repository.FindByIDs(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch products: %w", err)
+	}
+	productDTOs := make([]ProductDto, len(products))
+
+	for i, item := range products {
+		productDTOs[i] = *toDto(&item)
+	}
+
+	return productDTOs, nil
+}
+
 // FindAll retrieves a list of all products and returns them as ProductDTOs.
 // Returns an empty slice if no products exist or error if the retrieval fails.
-func (s *Service) FindAll(ctx context.Context, offset, limit int32) (*[]ProductDto, error) {
+func (s *Service) FindAll(ctx context.Context, offset, limit int32) ([]ProductDto, error) {
 	products, err := s.repository.FindAll(ctx, offset, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch products: %w", err)
 	}
-	productDTOs := make([]ProductDto, len(*products))
+	productDTOs := make([]ProductDto, len(products))
 
-	for i, item := range *products {
+	for i, item := range products {
 		productDTOs[i] = *toDto(&item)
 	}
 
-	return &productDTOs, nil
+	return productDTOs, nil
 }
 
 // Create creates a new product and returns it as a ProductDto.

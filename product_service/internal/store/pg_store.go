@@ -28,7 +28,7 @@ func NewPgStore(dbp *pgxpool.Pool) *PgStore {
 
 // FindByID retrieves a product by its unique identifier.
 // Returns ErrProductNotFound if no product exists with the given ID.
-func (p PgStore) FindByID(ctx context.Context, id uuid.UUID) (*db.Product, error) {
+func (p *PgStore) FindByID(ctx context.Context, id uuid.UUID) (*db.Product, error) {
 	product, err := p.q.FindByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -39,19 +39,29 @@ func (p PgStore) FindByID(ctx context.Context, id uuid.UUID) (*db.Product, error
 	return &product, nil
 }
 
+// FindByIDs retrieves products by IDs
+// It returns a slice of products, which may be empty if no products exist.
+func (p *PgStore) FindByIDs(ctx context.Context, ids []uuid.UUID) ([]db.Product, error) {
+	products, err := p.q.FindByIDs(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find all products: %w", err)
+	}
+	return products, nil
+}
+
 // FindAll retrieves all available products with pagination support.
 // It returns a slice of products, which may be empty if no products exist.
-func (p PgStore) FindAll(ctx context.Context, offset, limit int32) (*[]db.Product, error) {
+func (p *PgStore) FindAll(ctx context.Context, offset, limit int32) ([]db.Product, error) {
 	products, err := p.q.FindAll(ctx, db.FindAllParams{Limit: limit, Offset: offset})
 	if err != nil {
 		return nil, fmt.Errorf("failed to find all products: %w", err)
 	}
-	return &products, nil
+	return products, nil
 }
 
 // Create adds a new product to the system.
 // Returns an error if the product cannot be created.
-func (p PgStore) Create(ctx context.Context, name string, price int64, stock int32) (*db.Product, error) {
+func (p *PgStore) Create(ctx context.Context, name string, price int64, stock int32) (*db.Product, error) {
 	product, err := p.q.Create(ctx, db.CreateParams{
 		Name:          name,
 		Price:         price,
@@ -65,7 +75,7 @@ func (p PgStore) Create(ctx context.Context, name string, price int64, stock int
 
 // Update modifies an existing product's details.
 // Returns ErrProductNotFound if no product exists with the given ID and version.
-func (p PgStore) Update(ctx context.Context, id uuid.UUID, name string, price int64, stock int32, version int32) (*db.Product, error) {
+func (p *PgStore) Update(ctx context.Context, id uuid.UUID, name string, price int64, stock int32, version int32) (*db.Product, error) {
 	product, err := p.q.Update(ctx, db.UpdateParams{
 		ID:            id,
 		Name:          name,
@@ -84,7 +94,7 @@ func (p PgStore) Update(ctx context.Context, id uuid.UUID, name string, price in
 
 // UpdateStock adjusts the stock quantity of a product.
 // Returns ErrProductNotFound if no product exists with the given ID and version.
-func (p PgStore) UpdateStock(ctx context.Context, id uuid.UUID, stock int32, version int32) (*db.Product, error) {
+func (p *PgStore) UpdateStock(ctx context.Context, id uuid.UUID, stock int32, version int32) (*db.Product, error) {
 	product, err := p.q.UpdateStock(ctx, db.UpdateStockParams{
 		ID:            id,
 		StockQuantity: stock,
@@ -101,7 +111,7 @@ func (p PgStore) UpdateStock(ctx context.Context, id uuid.UUID, stock int32, ver
 
 // DeleteByID removes a product by its unique identifier.
 // Returns ErrProductNotFound if no product exists with the given ID and version.
-func (p PgStore) DeleteByID(ctx context.Context, id uuid.UUID, version int32) error {
+func (p *PgStore) DeleteByID(ctx context.Context, id uuid.UUID, version int32) error {
 	count, err := p.q.Delete(ctx, db.DeleteParams{
 		ID:      id,
 		Version: version,

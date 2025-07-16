@@ -11,6 +11,10 @@ SELECT *
 FROM products
 WHERE id = $1;
 
+-- name: FindByIDs :many
+SELECT * FROM products
+WHERE id = ANY(@ids::uuid[]);
+
 -- name: FindAll :many
 SELECT *
 FROM products

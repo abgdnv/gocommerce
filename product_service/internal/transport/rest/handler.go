@@ -90,8 +90,8 @@ func (h *Handler) FindAll(w http.ResponseWriter, r *http.Request) {
 		web.RespondError(w, mLogger, http.StatusInternalServerError, "Failed to fetch products")
 		return
 	}
-	mLogger.DebugContext(r.Context(), "Successfully retrieved product list", "count", len(*list))
-	web.RespondJSON(w, mLogger, http.StatusOK, *list)
+	mLogger.DebugContext(r.Context(), "Successfully retrieved product list", "count", len(list))
+	web.RespondJSON(w, mLogger, http.StatusOK, list)
 }
 
 // Create handles the creation of a new product.

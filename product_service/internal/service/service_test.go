@@ -23,9 +23,14 @@ func (m *mockProductStore) FindByID(_ context.Context, _ uuid.UUID) (*db.Product
 	return &m.product, m.error
 }
 
+// Simulate finding products by IDs
+func (m *mockProductStore) FindByIDs(_ context.Context, _ []uuid.UUID) ([]db.Product, error) {
+	return m.products, m.error
+}
+
 // Simulate finding all products
-func (m *mockProductStore) FindAll(_ context.Context, _, _ int32) (*[]db.Product, error) {
-	return &m.products, m.error
+func (m *mockProductStore) FindAll(_ context.Context, _, _ int32) ([]db.Product, error) {
+	return m.products, m.error
 }
 
 // Simulate creating a product
@@ -97,6 +102,65 @@ func Test_ProductService_FindByID(t *testing.T) {
 	}
 }
 
+func Test_ProductService_FindByIDs(t *testing.T) {
+	ErrStoreError := errors.New("store error")
+	mockID, _ := uuid.Parse("123e4567-e89b-12d3-a456-426614174000")
+	testCases := []struct {
+		name         string
+		mockStore    *mockProductStore
+		ids          []uuid.UUID
+		expectedList []ProductDto
+		expected     []ProductDto
+		expectError  error
+	}{
+		{
+			name: "Success - products found",
+			mockStore: &mockProductStore{
+				products: []db.Product{{ID: mockID, Name: "Toy"}},
+				error:    nil,
+			},
+			ids:          []uuid.UUID{mockID},
+			expectedList: []ProductDto{{ID: mockID.String(), Name: "Toy"}},
+			expectError:  nil,
+		},
+		{
+			name: "Success - no products",
+			mockStore: &mockProductStore{
+				products: []db.Product{},
+				error:    nil,
+			},
+			ids:          []uuid.UUID{uuid.New()},
+			expectedList: []ProductDto{},
+			expectError:  nil,
+		},
+		{
+			name: "Error - store error",
+			mockStore: &mockProductStore{
+				error: ErrStoreError,
+			},
+			expectedList: nil,
+			expectError:  ErrStoreError,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// given
+			service := NewService(tc.mockStore)
+			// when
+			found, err := service.FindByIDs(context.Background(), tc.ids)
+			// then
+			if tc.expectError != nil {
+				assert.ErrorIs(t, err, tc.expectError)
+				assert.Nil(t, found)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.expectedList, found)
+		})
+	}
+}
+
 func Test_ProductService_FindAll(t *testing.T) {
 	ErrStoreError := errors.New("store error")
 	mockID, _ := uuid.Parse("123e4567-e89b-12d3-a456-426614174000")
@@ -148,7 +212,7 @@ func Test_ProductService_FindAll(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tc.expectedList, *found)
+			assert.Equal(t, tc.expectedList, found)
 		})
 	}
 }

@@ -15,9 +15,13 @@ type ProductStore interface {
 	// Returns ErrProductNotFound if no product exists with the given ID.
 	FindByID(ctx context.Context, id uuid.UUID) (*db.Product, error)
 
+	// FindByIDs retrieves products by unique identifiers.
+	// Returns an empty slice if no products exist.
+	FindByIDs(ctx context.Context, id []uuid.UUID) ([]db.Product, error)
+
 	// FindAll returns all available products.
 	// Returns an empty slice if no products exist.
-	FindAll(ctx context.Context, offset, limit int32) (*[]db.Product, error)
+	FindAll(ctx context.Context, offset, limit int32) ([]db.Product, error)
 
 	// Create adds a new product to the system.
 	// Returns error if the product cannot be created.

@@ -181,6 +181,37 @@ func (s *ProductStoreSuite) TestFindByID_NotFound() {
 	require.ErrorIs(s.T(), err, perrors.ErrProductNotFound, "Expected ErrProductNotFound for non-existent product")
 }
 
+func (s *ProductStoreSuite) Test_FindByIDs_success() {
+	// given
+	p1 := s.createTestProduct("Product A", 100, 10)
+	p2 := s.createTestProduct("Product B", 200, 20)
+
+	// when
+	products, err := s.store.FindByIDs(s.ctx, []uuid.UUID{p1.ID, p2.ID})
+
+	// then
+	require.NoError(s.T(), err)
+
+	results := make(map[uuid.UUID]db.Product)
+	results[products[0].ID] = products[0]
+	results[products[1].ID] = products[1]
+
+	require.Len(s.T(), products, 2, "Should retrieve 2 products")
+	assert.Equal(s.T(), "Product A", results[p1.ID].Name)
+	assert.Equal(s.T(), "Product B", results[p2.ID].Name)
+}
+
+func (s *ProductStoreSuite) Test_FindByIDs_empty() {
+	// given
+
+	// when
+	products, err := s.store.FindByIDs(s.ctx, []uuid.UUID{})
+
+	// then
+	require.NoError(s.T(), err)
+	require.Len(s.T(), products, 0)
+}
+
 func (s *ProductStoreSuite) TestListProducts() {
 
 	s.createTestProduct("Product A", 100, 10)
@@ -189,9 +220,9 @@ func (s *ProductStoreSuite) TestListProducts() {
 	products, err := s.store.FindAll(s.ctx, 0, 10)
 
 	require.NoError(s.T(), err)
-	require.Len(s.T(), *products, 2, "Should retrieve 2 products")
-	assert.Equal(s.T(), "Product B", (*products)[0].Name)
-	assert.Equal(s.T(), "Product A", (*products)[1].Name)
+	require.Len(s.T(), products, 2, "Should retrieve 2 products")
+	assert.Equal(s.T(), "Product B", products[0].Name)
+	assert.Equal(s.T(), "Product A", products[1].Name)
 }
 
 func (s *ProductStoreSuite) TestUpdateProduct() {

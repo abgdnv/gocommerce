@@ -28,8 +28,12 @@ func (m mockProductService) FindByID(_ context.Context, _ uuid.UUID) (*service.P
 	return m.product, m.error
 }
 
-func (m mockProductService) FindAll(_ context.Context, _, _ int32) (*[]service.ProductDto, error) {
-	return &m.products, m.error
+func (m mockProductService) FindByIDs(_ context.Context, _ []uuid.UUID) ([]service.ProductDto, error) {
+	return m.products, m.error
+}
+
+func (m mockProductService) FindAll(_ context.Context, _, _ int32) ([]service.ProductDto, error) {
+	return m.products, m.error
 }
 
 // Simulate creating a product
