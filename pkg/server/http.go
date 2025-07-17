@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/abgdnv/gocommerce/pkg/config"
 	"github.com/abgdnv/gocommerce/pkg/web"
 	"github.com/go-chi/chi/v5"
 )
@@ -21,14 +22,14 @@ type HTTPConfig struct {
 }
 
 // NewHTTPServer creates and configures a new HTTP server instance.
-func NewHTTPServer(cfg HTTPConfig, handler http.Handler) *http.Server {
+func NewHTTPServer(cfg config.HTTPConfig, handler http.Handler) *http.Server {
 	return &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
 		Handler:           handler,
-		ReadTimeout:       cfg.ReadTimeout,
-		WriteTimeout:      cfg.WriteTimeout,
-		IdleTimeout:       cfg.IdleTimeout,
-		ReadHeaderTimeout: cfg.ReadHeader,
+		ReadTimeout:       cfg.Timeout.Read,
+		WriteTimeout:      cfg.Timeout.Write,
+		IdleTimeout:       cfg.Timeout.Idle,
+		ReadHeaderTimeout: cfg.Timeout.ReadHeader,
 		MaxHeaderBytes:    cfg.MaxHeaderBytes,
 	}
 }

@@ -49,17 +49,6 @@ func wireRoutes(mux *chi.Mux, deps *Dependencies) {
 
 // SetupHttpServer creates and configures an HTTP server for the OrderService application.
 func SetupHttpServer(deps *Dependencies, cfg *config.Config) *http.Server {
-
 	mux := SetupHttpHandler(deps)
-
-	httpCfg := server.HTTPConfig{
-		Port:           cfg.HTTPServer.Port,
-		MaxHeaderBytes: cfg.HTTPServer.MaxHeaderBytes,
-		ReadTimeout:    cfg.HTTPServer.Timeout.Read,
-		WriteTimeout:   cfg.HTTPServer.Timeout.Write,
-		IdleTimeout:    cfg.HTTPServer.Timeout.Idle,
-		ReadHeader:     cfg.HTTPServer.Timeout.ReadHeader,
-	}
-
-	return server.NewHTTPServer(httpCfg, mux)
+	return server.NewHTTPServer(cfg.HTTPServer, mux)
 }
