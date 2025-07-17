@@ -48,7 +48,7 @@ func runWorker(ctx context.Context, consumer jetstream.Consumer, timeout time.Du
 				if errors.Is(err, nats.ErrTimeout) {
 					continue
 				}
-				slog.Error("failed to fetch messages", "error", err)
+				logger.Error("failed to fetch messages", "error", err)
 				// for other errors, we can log and retry
 				time.Sleep(interval)
 				continue
@@ -60,23 +60,29 @@ func runWorker(ctx context.Context, consumer jetstream.Consumer, timeout time.Du
 	}
 }
 
+// AckableMsg is an interface that represents a message that can be acknowledged or negatively acknowledged.
+type AckableMsg interface {
+	Data() []byte
+	Ack() error
+	Nak() error
+}
+
 // handleMessage processes a single message from the NATS JetStream consumer.
-func handleMessage(msg jetstream.Msg, logger *slog.Logger) {
+func handleMessage(msg AckableMsg, logger *slog.Logger) {
 	if msg == nil {
-		slog.Error("received nil message")
+		logger.Error("received nil message")
 		return
 	}
 	var event events.OrderCreatedEvent
 	if err := json.Unmarshal(msg.Data(), &event); err != nil {
-		slog.Error("failed to unmarshal message", "error", err, "subject", msg.Subject())
+		logger.Error("failed to unmarshal message", "error", err)
 		if err := msg.Nak(); err != nil {
-			slog.Error("failed to nack message", "error", err)
+			logger.Error("failed to nack message", "error", err)
 		}
 		return
 	}
 
-	slog.Info("received order created event",
-		slog.String("subject", msg.Subject()),
+	logger.Info("received order created event",
 		slog.String("order_id", event.OrderID.String()),
 		slog.String("user_id", event.UserID.String()),
 		slog.String("created_at", event.CreatedAt.Format(time.RFC3339)))
@@ -84,7 +90,7 @@ func handleMessage(msg jetstream.Msg, logger *slog.Logger) {
 	notificationJob()
 
 	if err := msg.Ack(); err != nil {
-		slog.Error("failed to ack message", "error", err)
+		logger.Error("failed to ack message", "error", err)
 	}
 }
 
