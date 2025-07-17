@@ -1,0 +1,10 @@
+{
+  "name": "ORDERS",
+  "subjects": ["orders.*"],
+  "retention": "workqueue",
+  "storage": "file",
+  "max_age": 604800000000000,
+  "max_bytes": 1073741824,
+  "discard": "new",
+  "num_replicas": 1
+}

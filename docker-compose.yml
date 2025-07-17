@@ -1,3 +1,13 @@
+volumes:
+  postgres_data:
+    name: postgres_data
+  nats_data:
+    name: nats_data
+
+networks:
+  ecommerce-network:
+    name: ecommerce-network
+
 services:
   db:
     image: postgres:17.5-alpine
@@ -14,7 +24,7 @@ services:
     networks:
       - ecommerce-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -29,20 +39,40 @@ services:
       - "${NATS_HOST_PORT_MONITORING}:${NATS_INTERNAL_MONITORING_PORT}"
     command:
       - "--jetstream"
+      - "--store_dir=/data"
       - "--http_port=${NATS_INTERNAL_MONITORING_PORT}"
+    volumes:
+      - nats_data:/data
     networks:
       - ecommerce-network
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${NATS_INTERNAL_MONITORING_PORT}/healthz || exit 1"]
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${NATS_INTERNAL_MONITORING_PORT}/healthz || exit 1" ]
       interval: 5s
       timeout: 5s
       retries: 3
       start_period: 10s
 
+  nats-stream-setup:
+    image: natsio/nats-box:0.18.0-nonroot
+    container_name: nats-stream-setup
+    command: >
+      sh -c "
+        nats --server=nats:4222 stream create --config=/config/stream_orders.json ||
+        nats --server=nats:4222 stream update ORDERS --config=/config/stream_orders.json -f
+      "
+    volumes:
+      - ./docker/nats/stream_orders.json:/config/stream_orders.json
+    networks:
+      - ecommerce-network
+    depends_on:
+      nats:
+        condition: service_healthy
+
+
   product_migrator:
     image: migrate/migrate:4
     container_name: product-migrator
-    command: ["-path", "/migrations", "-database", "${PRODUCT_SVC_DATABASE_URL}", "up"]
+    command: [ "-path", "/migrations", "-database", "${PRODUCT_SVC_DATABASE_URL}", "up" ]
     volumes:
       - ./deploy/migrations/product_service:/migrations
     networks:
@@ -91,7 +121,7 @@ services:
   order_migrator:
     image: migrate/migrate:4
     container_name: order-migrator
-    command: ["-path", "/migrations", "-database", "${ORDER_SVC_DATABASE_URL}", "up"]
+    command: [ "-path", "/migrations", "-database", "${ORDER_SVC_DATABASE_URL}", "up" ]
     volumes:
       - ./deploy/migrations/order_service:/migrations
     networks:
@@ -139,12 +169,32 @@ services:
       order_migrator:
         condition: service_completed_successfully
 
-
-
-volumes:
-  postgres_data:
-    name: postgres_data
-
-networks:
-  ecommerce-network:
-    name: ecommerce-network
+  notification_service:
+    build:
+      context: .
+      dockerfile: notification_service/Dockerfile
+      args:
+        NOTIFICATION_SVC_DOCKER_IMAGE: ${NOTIFICATION_SVC_DOCKER_IMAGE}
+        NOTIFICATION_SVC_DOCKER_TAG: ${NOTIFICATION_SVC_DOCKER_TAG}
+    image: ${NOTIFICATION_SVC_DOCKER_IMAGE}:${NOTIFICATION_SVC_DOCKER_TAG}
+    restart: unless-stopped
+    container_name: notification-service
+    ports:
+      - "${NOTIFICATION_SVC_PPROF_HOST_PORT}:${NOTIFICATION_SVC_PPROF_PORT}"
+    environment:
+      - NOTIFICATION_SVC_LOG_LEVEL=${NOTIFICATION_SVC_LOG_LEVEL}
+      - NOTIFICATION_SVC_PPROF_ENABLED=${NOTIFICATION_SVC_PPROF_ENABLED}
+      - NOTIFICATION_SVC_PPROF_ADDR=${NOTIFICATION_SVC_PPROF_ADDR}
+      - NOTIFICATION_SVC_NATS_URL=${NOTIFICATION_SVC_NATS_URL}
+      - NOTIFICATION_SVC_NATS_TIMEOUT=${NOTIFICATION_SVC_NATS_TIMEOUT}
+      - NOTIFICATION_SVC_SUBSCRIBER_STREAM=${NOTIFICATION_SVC_SUBSCRIBER_STREAM}
+      - NOTIFICATION_SVC_SUBSCRIBER_SUBJECT=${NOTIFICATION_SVC_SUBSCRIBER_SUBJECT}
+      - NOTIFICATION_SVC_SUBSCRIBER_CONSUMER=${NOTIFICATION_SVC_SUBSCRIBER_CONSUMER}
+      - NOTIFICATION_SVC_SUBSCRIBER_TIMEOUT=${NOTIFICATION_SVC_SUBSCRIBER_TIMEOUT}
+      - NOTIFICATION_SVC_SUBSCRIBER_WORKERS=${NOTIFICATION_SVC_SUBSCRIBER_WORKERS}
+      - NOTIFICATION_SVC_SHUTDOWN_TIMEOUT=${NOTIFICATION_SVC_SHUTDOWN_TIMEOUT}
+    networks:
+      - ecommerce-network
+    depends_on:
+      nats:
+        condition: service_healthy

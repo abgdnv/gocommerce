@@ -1,0 +1,17 @@
+log:
+  level: info
+pprof:
+  enabled: false
+  addr: "localhost:6060"
+nats:
+  url: "nats://localhost:4222"
+  timeout: 2s
+subscriber:
+  stream: "ORDERS"
+  subject: "orders.created"
+  consumer: "notification_service"
+  timeout: 5s
+  interval: 1s
+  workers: 3
+shutdown:
+  timeout: 5s
