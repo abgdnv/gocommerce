@@ -28,7 +28,7 @@ sqlc: ## Generate sqlc code from SQL
 lint: ## Run linter in all modules
 	@echo "Running golangci-lint in all modules..."
 	@for dir in $(MODULES); do \
-		echo "Linting $$dir"; \
+		echo "==> Linting $$dir"; \
 		(cd "$$dir" && golangci-lint run ./...); \
 	done
 
@@ -48,16 +48,25 @@ docker-down: ## docker compose down
 test: ## Run tests in all modules
 	@echo "Running tests in all modules..."
 	@for dir in $(MODULES); do \
-			echo "Testing $$dir"; \
+			echo "==> Testing $$dir"; \
 			(cd "$$dir" && go test --count=1 ./...); \
 	done
 
 .PHONY: testv
 testv: ## Run tests in all modules with verbose output
 	@echo "Running tests in all modules..."
-	@find . -name "go.mod" -not -path "./vendor/*" -exec dirname {} \; | while read dir; do \
-		echo "Testing $$dir"; \
+	@for dir in $(MODULES); do \
+		echo "==> Testing $$dir"; \
 		(cd "$$dir" && go test -v --count=1 ./...); \
 	done
 
+.PHONY: tidy
+tidy: ## Run tests in all modules with verbose output
+	@echo "Tidying all Go modules..."
+	@for dir in $(MODULES); do \
+		echo "==> Tidying module in $$dir"; \
+		(cd $$dir && go mod tidy); \
+	done
+
+	@echo "Done."
 .DEFAULT_GOAL := help
