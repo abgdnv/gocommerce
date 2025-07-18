@@ -26,7 +26,7 @@ func (m *mockAckableMsg) Ack() error {
 	return args.Error(0)
 }
 
-func (m *mockAckableMsg) Nak() error {
+func (m *mockAckableMsg) Term() error {
 	args := m.Called()
 	return args.Error(0)
 }
@@ -57,7 +57,7 @@ func Test_handleMessage(t *testing.T) {
 			newMockMsg: func() *mockAckableMsg {
 				msg := new(mockAckableMsg)
 				msg.On("Data").Return([]byte("invalid data")).Times(1)
-				msg.On("Nak").Return(nil).Times(1)
+				msg.On("Term").Return(nil).Times(1)
 				return msg
 			},
 		},

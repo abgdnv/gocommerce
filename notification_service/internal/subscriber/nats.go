@@ -64,7 +64,7 @@ func runWorker(ctx context.Context, consumer jetstream.Consumer, timeout time.Du
 type AckableMsg interface {
 	Data() []byte
 	Ack() error
-	Nak() error
+	Term() error
 }
 
 // handleMessage processes a single message from the NATS JetStream consumer.
@@ -76,8 +76,8 @@ func handleMessage(msg AckableMsg, logger *slog.Logger) {
 	var event events.OrderCreatedEvent
 	if err := json.Unmarshal(msg.Data(), &event); err != nil {
 		logger.Error("failed to unmarshal message", "error", err)
-		if err := msg.Nak(); err != nil {
-			logger.Error("failed to nack message", "error", err)
+		if err := msg.Term(); err != nil {
+			logger.Error("failed to term message", "error", err)
 		}
 		return
 	}
