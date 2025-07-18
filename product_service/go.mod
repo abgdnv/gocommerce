@@ -1,6 +1,8 @@
 module github.com/abgdnv/gocommerce/product_service
 
-go 1.24.0
+go 1.24.4
+
+replace github.com/abgdnv/gocommerce/pkg => ../pkg
 
 require (
 	github.com/abgdnv/gocommerce/pkg v0.0.0
@@ -97,5 +99,3 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/abgdnv/gocommerce/pkg => ../pkg
