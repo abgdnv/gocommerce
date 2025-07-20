@@ -76,7 +76,7 @@ func (c *Config) Validate() error {
 		return err
 	}
 	if err := c.Shutdown.Validate(); err != nil {
-		return nil
+		return err
 	}
 	if err := c.GRPC.Validate(); err != nil {
 		return err

@@ -1,4 +1,4 @@
-// Package errors provides custom error types for product-related operations.
+// Package errors provides custom error types for order-related operations.
 package errors
 
 import "errors"
