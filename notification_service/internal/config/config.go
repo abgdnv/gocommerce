@@ -29,6 +29,7 @@ func (c *Config) String() string {
 	b.WriteString(fmt.Sprintf("  subscriber.stream: %s\n", c.Subscriber.Stream))
 	b.WriteString(fmt.Sprintf("  subscriber.subject: %s\n", c.Subscriber.Subject))
 	b.WriteString(fmt.Sprintf("  subscriber.consumer: %s\n", c.Subscriber.Consumer))
+	b.WriteString(fmt.Sprintf("  subscriber.batch: %d\n", c.Subscriber.Batch))
 	b.WriteString(fmt.Sprintf("  subscriber.timeout: %s\n", c.Subscriber.Timeout))
 	b.WriteString(fmt.Sprintf("  subscriber.interval: %s\n", c.Subscriber.Interval))
 	b.WriteString(fmt.Sprintf("  subscriber.workers: %d\n", c.Subscriber.Workers))

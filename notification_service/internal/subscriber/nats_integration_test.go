@@ -161,13 +161,15 @@ func (s *SubscriberSuite) TestReceiveMessage() {
 				if err != nil {
 					return false
 				}
-				return consumerInfo.NumPending == uint64(0) && consumerInfo.AckFloor.Stream == uint64(2)
+				return consumerInfo.NumPending == 0 && consumerInfo.NumAckPending == 0 && consumerInfo.AckFloor.Stream == 2
 			},
 			assert: func(testStream, testConsumer string) {
 				finalConsumerInfo, err := s.jsCtx.ConsumerInfo(testStream, testConsumer)
 				require.NoError(s.T(), err)
 				// Assert that the consumer has no pending messages
 				require.Equal(s.T(), uint64(0), finalConsumerInfo.NumPending)
+				// Assert that the consumer has no messages pending acknowledgment
+				require.Equal(s.T(), 0, finalConsumerInfo.NumAckPending)
 				// Assert that the stream's AckFloor is set to 2, indicating the invalid message was processed
 				require.Equal(s.T(), uint64(2), finalConsumerInfo.AckFloor.Stream)
 			},
@@ -205,6 +207,7 @@ func (s *SubscriberSuite) runTest(t *testing.T, tc *TestCaseConfig) {
 		Stream:   tc.streamName,
 		Subject:  tc.subjectName,
 		Consumer: tc.consumerName,
+		Batch:    10,
 		Timeout:  200 * time.Millisecond,
 		Interval: 200 * time.Microsecond,
 		Workers:  1,

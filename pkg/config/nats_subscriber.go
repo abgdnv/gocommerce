@@ -9,6 +9,7 @@ type SubscriberConfig struct {
 	Stream   string        `koanf:"stream"`
 	Subject  string        `koanf:"subject"`
 	Consumer string        `koanf:"consumer"`
+	Batch    int           `koanf:"batch"`
 	Timeout  time.Duration `koanf:"timeout"`
 	Interval time.Duration `koanf:"interval"`
 	Workers  int           `koanf:"workers"`
@@ -23,6 +24,9 @@ func (c *SubscriberConfig) Validate() error {
 	}
 	if c.Consumer == "" {
 		return fmt.Errorf("SubscriberConfig: consumer is not configured")
+	}
+	if c.Batch <= 0 {
+		return fmt.Errorf("SubscriberConfig: batch must be greater than zero")
 	}
 	if c.Timeout <= 0 {
 		return fmt.Errorf("SubscriberConfig: timeout must be greater than zero")

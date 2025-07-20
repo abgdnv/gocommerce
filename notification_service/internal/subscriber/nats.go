@@ -28,21 +28,21 @@ func Start(ctx context.Context, js jetstream.JetStream, subscriberCfg config.Sub
 	g, gCtx := errgroup.WithContext(ctx)
 	for i := 0; i < subscriberCfg.Workers; i++ {
 		g.Go(func() error {
-			return runWorker(gCtx, consumer, subscriberCfg.Timeout, subscriberCfg.Interval, logger)
+			return runWorker(gCtx, consumer, subscriberCfg.Batch, subscriberCfg.Timeout, subscriberCfg.Interval, logger)
 		})
 	}
 	return g.Wait()
 }
 
 // runWorker fetches messages from the NATS JetStream consumer and processes them.
-func runWorker(ctx context.Context, consumer jetstream.Consumer, timeout time.Duration, interval time.Duration, logger *slog.Logger) error {
+func runWorker(ctx context.Context, consumer jetstream.Consumer, batchSize int, timeout time.Duration, interval time.Duration, logger *slog.Logger) error {
 	for {
 		select {
 		case <-ctx.Done():
 			// ctx was cancelled or timed out (e.g., application shutdown)
 			return ctx.Err()
 		default:
-			batch, err := consumer.Fetch(1, jetstream.FetchMaxWait(timeout))
+			batch, err := consumer.Fetch(batchSize, jetstream.FetchMaxWait(timeout))
 			if err != nil {
 				// if the error is a timeout, we can just continue to the next iteration
 				if errors.Is(err, nats.ErrTimeout) {
