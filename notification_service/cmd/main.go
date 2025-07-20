@@ -13,6 +13,7 @@ import (
 
 	"github.com/abgdnv/gocommerce/notification_service/internal/config"
 	"github.com/abgdnv/gocommerce/notification_service/internal/subscriber"
+	"github.com/abgdnv/gocommerce/pkg/bootstrap"
 	"github.com/abgdnv/gocommerce/pkg/config/configloader"
 	"github.com/abgdnv/gocommerce/pkg/nats"
 	"golang.org/x/sync/errgroup"
@@ -39,7 +40,7 @@ func run(ctx context.Context) error {
 	}
 	log.Printf("Configuration loaded: %v", cfg)
 
-	logger := newLogger(cfg.Log.Level)
+	logger := bootstrap.NewLogger(cfg.Log.Level)
 	slog.SetDefault(logger)
 
 	natsConn, err := nats.NewClient(cfg.Nats.Url, cfg.Nats.Timeout)
@@ -93,30 +94,4 @@ func run(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// newLogger creates a new slog.Logger instance with the specified log level.
-func newLogger(level string) *slog.Logger {
-	logLevel := toLevel(level)
-	loggerOpts := &slog.HandlerOptions{
-		AddSource: logLevel == slog.LevelDebug,
-		Level:     logLevel,
-	}
-	logHandler := slog.NewJSONHandler(os.Stdout, loggerOpts)
-	logger := slog.New(logHandler)
-	return logger
-}
-
-// toLevel converts a string representation of a log level to slog.Level.
-func toLevel(level string) slog.Level {
-	switch level {
-	case "debug":
-		return slog.LevelDebug
-	case "warn":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
-	}
 }

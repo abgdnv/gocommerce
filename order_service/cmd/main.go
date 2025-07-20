@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/abgdnv/gocommerce/pkg/bootstrap"
 	"github.com/abgdnv/gocommerce/pkg/nats"
 	"github.com/nats-io/nats.go/jetstream"
 
@@ -46,10 +47,10 @@ func run(ctx context.Context) error {
 	}
 	log.Printf("Configuration loaded: %v", cfg)
 
-	logger := newLogger(cfg.Log.Level)
+	logger := bootstrap.NewLogger(cfg.Log.Level)
 	slog.SetDefault(logger)
 
-	dbPool, err := newDbPool(ctx, cfg.Database.URL, cfg.Database.Timeout)
+	dbPool, err := bootstrap.NewDbPool(ctx, cfg.Database.URL, cfg.Database.Timeout)
 	if err != nil {
 		return fmt.Errorf("failed to create database connection pool: %w", err)
 	}
@@ -172,47 +173,4 @@ func setupServers(dbPool *pgxpool.Pool, productClient pb.ProductServiceClient, j
 		Addr: cfg.PProf.Addr,
 	}
 	return httpServer, pprofServer
-}
-
-// newLogger creates a new slog.Logger instance with the specified log level.
-func newLogger(level string) *slog.Logger {
-	logLevel := toLevel(level)
-	loggerOpts := &slog.HandlerOptions{
-		AddSource: logLevel == slog.LevelDebug,
-		Level:     logLevel,
-	}
-	logHandler := slog.NewJSONHandler(os.Stdout, loggerOpts)
-	logger := slog.New(logHandler)
-	return logger
-}
-
-// newDbPool creates a new database connection pool with the provided context and configuration,
-func newDbPool(ctx context.Context, url string, connectTimeout time.Duration) (*pgxpool.Pool, error) {
-	// Create context with timeout for database connection
-	poolCtx, cancel := context.WithTimeout(ctx, connectTimeout)
-	defer cancel()
-
-	dbPool, errPool := pgxpool.New(poolCtx, url)
-	if errPool != nil {
-		return nil, fmt.Errorf("failed to create database connection pool: %w", errPool)
-	}
-	// Ping the database to ensure the connection is established (fail early if not)
-	if err := dbPool.Ping(poolCtx); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
-	}
-	return dbPool, nil
-}
-
-// toLevel converts a string representation of a log level to slog.Level.
-func toLevel(level string) slog.Level {
-	switch level {
-	case "debug":
-		return slog.LevelDebug
-	case "warn":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
-	}
 }
