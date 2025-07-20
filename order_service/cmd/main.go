@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/abgdnv/gocommerce/pkg/bootstrap"
+	"github.com/abgdnv/gocommerce/pkg/client/grpc/interceptors"
 	"github.com/abgdnv/gocommerce/pkg/nats"
 	"github.com/nats-io/nats.go/jetstream"
 
@@ -58,7 +59,13 @@ func run(ctx context.Context) error {
 	logger.Info("Successfully connected to the database!")
 
 	// Create a gRPC client connection to the Product service
-	grpcClient, err := grpc.NewClient(cfg.Services.Product.Grpc.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	grpcClient, err := grpc.NewClient(
+		cfg.Services.Product.Grpc.Addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(
+			interceptors.UnaryClientTimeoutInterceptor(cfg.Services.Product.Grpc.Timeout),
+		),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create gRPC client connection: %w", err)
 	}

@@ -41,6 +41,7 @@ func (c *Config) String() string {
 
 	b.WriteString("\n--- External Services ---\n")
 	b.WriteString(fmt.Sprintf("  services.product.grpc.addr: %s\n", c.Services.Product.Grpc.Addr))
+	b.WriteString(fmt.Sprintf("  services.product.grpc.timeout: %s\n", c.Services.Product.Grpc.Timeout))
 	b.WriteString(fmt.Sprintf("  nats.url: %s\n", c.Nats.Url))
 	b.WriteString(fmt.Sprintf("  nats.timeout: %s\n", c.Nats.Timeout))
 
