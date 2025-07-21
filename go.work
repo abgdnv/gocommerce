@@ -1,6 +1,7 @@
 go 1.24.4
 
 use (
+	./api_gateway
 	./notification_service
 	./order_service
 	./pkg

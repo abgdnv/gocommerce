@@ -1,0 +1,116 @@
+
+############################# Product Service API #############################
+
+
+@host = localhost:8080
+@product_base_url = http://{{host}}/api/products
+
+###
+
+//Create a new product
+POST {{product_base_url}} HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "Sample Product",
+  "price": 1999,
+  "stock": 100
+}
+
+> {%
+    client.global.set("productID", response.body.id);
+%}
+
+###
+
+//Get an product by ID
+GET {{product_base_url}}/{{productID}} HTTP/1.1
+
+###
+
+//Get all products
+GET {{product_base_url}}?offset=0&limit=100 HTTP/1.1
+
+###
+
+//Update an product by ID
+PUT {{product_base_url}}/{{productID}} HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "Updated Product",
+  "price": 2499,
+  "stock": 10,
+  "version": 1
+}
+
+###
+// update product stock
+PUT {{product_base_url}}/{{productID}}/stock HTTP/1.1
+Content-Type: application/json
+
+{
+  "stock": 50,
+  "version": 1
+}
+
+###
+
+//Delete an product by ID
+DELETE {{product_base_url}}/{{productID}}?version=3 HTTP/1.1
+
+###
+
+############################# Order Service API #############################
+
+@order_base_url = http://{{host}}/api/orders
+@user_id = 123e4567-e89b-12d3-a456-426614174000
+
+//Create a new order
+POST {{order_base_url}} HTTP/1.1
+X-User-Id: {{user_id}}
+Content-Type: application/json
+
+{
+  "user_id": "123e4567-e89b-12d3-a456-426614174000",
+  "status": "pending",
+  "items": [
+    {
+      "product_id": "{{productID}}",
+      "quantity": 1,
+      "price_per_item": 100,
+      "price": 100
+    }
+  ]
+}
+
+> {%
+    client.global.set("orderID", response.body.id);
+%}
+
+###
+
+//Get an order by ID
+GET {{order_base_url}}/{{orderID}} HTTP/1.1
+X-User-Id: {{user_id}}
+
+
+###
+
+//Get all orders for a user
+GET {{order_base_url}}?offset=0&limit=100 HTTP/1.1
+X-User-Id: {{user_id}}
+
+###
+
+//Update an order by ID
+PUT {{order_base_url}}/{{orderID}} HTTP/1.1
+X-User-Id: {{user_id}}
+Content-Type: application/json
+
+{
+  "status": "shipped",
+  "version": 1
+}
+
+###

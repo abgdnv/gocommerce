@@ -1,0 +1,93 @@
+package config
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/abgdnv/gocommerce/pkg/config"
+	"github.com/abgdnv/gocommerce/pkg/config/configloader"
+)
+
+var _ configloader.Validator = (*Config)(nil)
+
+type Config struct {
+	Port     int                   `koanf:"port"`
+	Log      config.LogConfig      `koanf:"log"`
+	PProf    config.PProfConfig    `koanf:"pprof"`
+	Shutdown config.ShutdownConfig `koanf:"shutdown"`
+	Services Services              `koanf:"services"`
+}
+
+type Services struct {
+	Product struct {
+		Url  string `koanf:"url"`
+		From string `koanf:"from"`
+		To   string `koanf:"to"`
+	} `koanf:"product"`
+	Order struct {
+		Url  string `koanf:"url"`
+		From string `koanf:"from"`
+		To   string `koanf:"to"`
+	} `koanf:"order"`
+}
+
+func (c *Config) String() string {
+	var b strings.Builder
+
+	b.WriteString("\n--- Server Configuration ---\n")
+	b.WriteString(fmt.Sprintf("  server.port: %d\n", c.Port))
+
+	b.WriteString("\n--- Services Configuration ---\n")
+	b.WriteString(fmt.Sprintf("  product.service.url: %s\n", c.Services.Product.Url))
+	b.WriteString(fmt.Sprintf("  product.service.from: %s\n", c.Services.Product.From))
+	b.WriteString(fmt.Sprintf("  product.service.to: %s\n", c.Services.Product.To))
+	b.WriteString(fmt.Sprintf("  order.service.url: %s\n", c.Services.Order.Url))
+	b.WriteString(fmt.Sprintf("  order.service.from: %s\n", c.Services.Order.From))
+	b.WriteString(fmt.Sprintf("  order.service.to: %s\n", c.Services.Order.To))
+
+	b.WriteString("\n--- Observability & Logging ---\n")
+	b.WriteString(fmt.Sprintf("  log.level: %s\n", c.Log.Level))
+	b.WriteString(fmt.Sprintf("  pprof.enabled: %t\n", c.PProf.Enabled))
+	b.WriteString(fmt.Sprintf("  pprof.address: %s\n", c.PProf.Addr))
+
+	b.WriteString("\n--- Application Behavior ---\n")
+	b.WriteString(fmt.Sprintf("  shutdown.timeout: %s\n", c.Shutdown.Timeout))
+
+	return b.String()
+}
+
+// Validate checks if the configuration values are valid
+func (c *Config) Validate() error {
+	if c.Port <= 0 || c.Port > 65535 {
+		return fmt.Errorf("invalid HTTP server port: %d", c.Port)
+	}
+	if err := c.Log.Validate(); err != nil {
+		return err
+	}
+	if err := c.PProf.Validate(); err != nil {
+		return err
+	}
+	if err := c.Shutdown.Validate(); err != nil {
+		return err
+	}
+	if c.Services.Product.Url == "" {
+		return fmt.Errorf("product service URL cannot be empty")
+	}
+	if c.Services.Product.From == "" {
+		return fmt.Errorf("product service 'from' field cannot be empty")
+	}
+	if c.Services.Product.To == "" {
+		return fmt.Errorf("product service 'to' field cannot be empty")
+	}
+	if c.Services.Order.Url == "" {
+		return fmt.Errorf("order service URL cannot be empty")
+	}
+	if c.Services.Order.From == "" {
+		return fmt.Errorf("order service 'from' field cannot be empty")
+	}
+	if c.Services.Order.To == "" {
+		return fmt.Errorf("order service 'to' field cannot be empty")
+	}
+
+	return nil
+}
