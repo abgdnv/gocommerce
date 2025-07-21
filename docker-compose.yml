@@ -3,6 +3,8 @@ volumes:
     name: postgres_data
   nats_data:
     name: nats_data
+  kc_data:
+    name: kc_data
 
 networks:
   ecommerce-network:
@@ -68,6 +70,22 @@ services:
       nats:
         condition: service_healthy
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3
+    container_name: keycloak
+    command:
+     - start-dev
+     - --import-realm
+    environment:
+      - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_BOOTSTRAP_ADMIN_USERNAME}
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_BOOTSTRAP_ADMIN_PASSWORD}
+    ports:
+      - "${KC_HTTP_HOST_PORT}:8080"
+    volumes:
+      - kc_data:/opt/keycloak/data/
+      - ./docker/keycloak/import:/opt/keycloak/data/import
+    networks:
+      - ecommerce-network
 
   product_migrator:
     image: migrate/migrate:4
