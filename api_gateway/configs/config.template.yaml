@@ -16,7 +16,7 @@ services:
     url: "http://product_service:8080"
     from: "/api/products"
     to: "/api/v1/products"
-  orders:
+  order:
     url: "http://order_service:8080"
     from: "/api/orders"
     to: "/api/v1/orders"
