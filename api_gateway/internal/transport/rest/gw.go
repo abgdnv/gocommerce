@@ -69,7 +69,7 @@ func createReverseProxyWithRewrite(targetURL, fromPath, toPath string) (http.Han
 	proxy.Director = func(req *http.Request) {
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
-		req.URL.Path = strings.Replace(req.URL.Path, fromPath, toPath, 1)
+		req.URL.Path = toPath + strings.TrimPrefix(req.URL.Path, fromPath)
 	}
 	return proxy, nil
 }
