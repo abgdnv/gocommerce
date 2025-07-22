@@ -45,7 +45,7 @@ func run(ctx context.Context) error {
 	g, gCtx := errgroup.WithContext(ctx)
 
 	// Start the API Gateway
-	gw := rest.NewGW(cfg.Port, cfg.Services, logger)
+	gw := rest.NewGW(cfg.HTTPServer, cfg.Services, logger)
 	httpServer, err := gw.SetupHTTPServer()
 	if err != nil {
 		return err

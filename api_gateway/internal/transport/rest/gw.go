@@ -8,21 +8,22 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/abgdnv/gocommerce/api_gateway/internal/config"
+	sCfg "github.com/abgdnv/gocommerce/api_gateway/internal/config"
+	"github.com/abgdnv/gocommerce/pkg/config"
 	"github.com/abgdnv/gocommerce/pkg/server"
 )
 
 type GW struct {
-	port   int
-	cfg    config.Services
-	logger *slog.Logger
+	httpCfg config.HTTPConfig
+	cfg     sCfg.Services
+	logger  *slog.Logger
 }
 
-func NewGW(port int, cfg config.Services, logger *slog.Logger) *GW {
+func NewGW(httpCfg config.HTTPConfig, cfg sCfg.Services, logger *slog.Logger) *GW {
 	return &GW{
-		port:   port,
-		cfg:    cfg,
-		logger: logger.With("component", "gw"),
+		cfg:     cfg,
+		httpCfg: httpCfg,
+		logger:  logger.With("component", "gw"),
 	}
 }
 
@@ -44,8 +45,13 @@ func (gw *GW) SetupHTTPServer() (*http.Server, error) {
 	mux.Mount(gw.cfg.Order.From, orderProxy)
 
 	return &http.Server{
-		Addr:    fmt.Sprintf(":%d", gw.port),
-		Handler: mux,
+		Addr:              fmt.Sprintf(":%d", gw.httpCfg.Port),
+		Handler:           mux,
+		ReadTimeout:       gw.httpCfg.Timeout.Read,
+		WriteTimeout:      gw.httpCfg.Timeout.Write,
+		IdleTimeout:       gw.httpCfg.Timeout.Idle,
+		ReadHeaderTimeout: gw.httpCfg.Timeout.ReadHeader,
+		MaxHeaderBytes:    gw.httpCfg.MaxHeaderBytes,
 	}, nil
 }
 

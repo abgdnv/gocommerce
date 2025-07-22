@@ -11,11 +11,11 @@ import (
 var _ configloader.Validator = (*Config)(nil)
 
 type Config struct {
-	Port     int                   `koanf:"port"`
-	Log      config.LogConfig      `koanf:"log"`
-	PProf    config.PProfConfig    `koanf:"pprof"`
-	Shutdown config.ShutdownConfig `koanf:"shutdown"`
-	Services Services              `koanf:"services"`
+	HTTPServer config.HTTPConfig     `koanf:"server"`
+	Log        config.LogConfig      `koanf:"log"`
+	PProf      config.PProfConfig    `koanf:"pprof"`
+	Shutdown   config.ShutdownConfig `koanf:"shutdown"`
+	Services   Services              `koanf:"services"`
 }
 
 type Services struct {
@@ -35,7 +35,12 @@ func (c *Config) String() string {
 	var b strings.Builder
 
 	b.WriteString("\n--- Server Configuration ---\n")
-	b.WriteString(fmt.Sprintf("  server.port: %d\n", c.Port))
+	b.WriteString(fmt.Sprintf("  server.port: %d\n", c.HTTPServer.Port))
+	b.WriteString(fmt.Sprintf("  server.maxHeaderBytes: %d\n", c.HTTPServer.MaxHeaderBytes))
+	b.WriteString(fmt.Sprintf("  server.timeout.read: %v\n", c.HTTPServer.Timeout.Read))
+	b.WriteString(fmt.Sprintf("  server.timeout.write: %v\n", c.HTTPServer.Timeout.Write))
+	b.WriteString(fmt.Sprintf("  server.timeout.idle: %v\n", c.HTTPServer.Timeout.Idle))
+	b.WriteString(fmt.Sprintf("  server.timeout.readHeader: %v\n", c.HTTPServer.Timeout.ReadHeader))
 
 	b.WriteString("\n--- Services Configuration ---\n")
 	b.WriteString(fmt.Sprintf("  product.service.url: %s\n", c.Services.Product.Url))
@@ -58,8 +63,8 @@ func (c *Config) String() string {
 
 // Validate checks if the configuration values are valid
 func (c *Config) Validate() error {
-	if c.Port <= 0 || c.Port > 65535 {
-		return fmt.Errorf("invalid HTTP server port: %d", c.Port)
+	if err := c.HTTPServer.Validate(); err != nil {
+		return err
 	}
 	if err := c.Log.Validate(); err != nil {
 		return err

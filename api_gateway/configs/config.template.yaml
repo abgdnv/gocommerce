@@ -1,0 +1,24 @@
+server:
+  port: 8080
+  maxHeaderBytes: 1048576
+  timeout:
+    read: 11s
+    write: 11s
+    idle: 61s
+    readHeader: 6s
+log:
+  level: info
+pprof:
+  enabled: false
+  addr: "localhost:6060"
+services:
+  product:
+    url: "http://product_service:8080"
+    from: "/api/products"
+    to: "/api/v1/products"
+  orders:
+    url: "http://order_service:8080"
+    from: "/api/orders"
+    to: "/api/v1/orders"
+shutdown:
+  timeout: 5s
