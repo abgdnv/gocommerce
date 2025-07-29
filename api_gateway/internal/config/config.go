@@ -16,6 +16,7 @@ type Config struct {
 	PProf      config.PProfConfig    `koanf:"pprof"`
 	Shutdown   config.ShutdownConfig `koanf:"shutdown"`
 	Services   Services              `koanf:"services"`
+	IdP        config.IdP            `koanf:"idp"`
 }
 
 type Services struct {
@@ -49,6 +50,12 @@ func (c *Config) String() string {
 	b.WriteString(fmt.Sprintf("  order.service.url: %s\n", c.Services.Order.Url))
 	b.WriteString(fmt.Sprintf("  order.service.from: %s\n", c.Services.Order.From))
 	b.WriteString(fmt.Sprintf("  order.service.to: %s\n", c.Services.Order.To))
+
+	b.WriteString("\n--- Identity Provider ---\n")
+	b.WriteString(fmt.Sprintf("  idp.jwksurl: %s\n", c.IdP.JwksURL))
+	b.WriteString(fmt.Sprintf("  idp.issuer: %s\n", c.IdP.Issuer))
+	b.WriteString(fmt.Sprintf("  idp.clientid: %s\n", c.IdP.ClientID))
+	b.WriteString(fmt.Sprintf("  idp.mininterval: %v\n", c.IdP.MinInterval))
 
 	b.WriteString("\n--- Observability & Logging ---\n")
 	b.WriteString(fmt.Sprintf("  log.level: %s\n", c.Log.Level))
@@ -93,6 +100,8 @@ func (c *Config) Validate() error {
 	if c.Services.Order.To == "" {
 		return fmt.Errorf("order service 'to' field cannot be empty")
 	}
-
+	if err := c.IdP.Validate(); err != nil {
+		return err
+	}
 	return nil
 }

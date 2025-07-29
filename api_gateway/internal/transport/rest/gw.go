@@ -9,8 +9,12 @@ import (
 	"strings"
 
 	sCfg "github.com/abgdnv/gocommerce/api_gateway/internal/config"
+	"github.com/abgdnv/gocommerce/api_gateway/internal/middleware"
+	"github.com/abgdnv/gocommerce/pkg/auth"
 	"github.com/abgdnv/gocommerce/pkg/config"
 	"github.com/abgdnv/gocommerce/pkg/server"
+	"github.com/abgdnv/gocommerce/pkg/web"
+	"github.com/go-chi/chi/v5"
 )
 
 type GW struct {
@@ -29,20 +33,32 @@ func NewGW(httpCfg config.HTTPConfig, cfg sCfg.Services, logger *slog.Logger) *G
 
 // SetupHTTPServer initializes the HTTP server with the configured reverse proxies.
 // If there is an error creating the reverse proxy, it returns an error.
-func (gw *GW) SetupHTTPServer() (*http.Server, error) {
+func (gw *GW) SetupHTTPServer(verifier *auth.JWTVerifier) (*http.Server, error) {
 	mux := server.NewChiRouter(gw.logger)
 
 	productProxy, err := createReverseProxyWithRewrite(gw.cfg.Product.Url, gw.cfg.Product.From, gw.cfg.Product.To)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create product proxy: %w", err)
 	}
-	mux.Mount(gw.cfg.Product.From, productProxy)
+	mux.Route(gw.cfg.Product.From, func(r chi.Router) {
+		r.With(middleware.AuthMiddleware(verifier)).Post("/", productProxy.ServeHTTP)
+		r.With(middleware.AuthMiddleware(verifier)).Put("/{id}", productProxy.ServeHTTP)
+		r.With(middleware.AuthMiddleware(verifier)).Delete("/{id}", productProxy.ServeHTTP)
+
+		r.With(middleware.AuthMiddleware(verifier)).Put("/{id}/stock", productProxy.ServeHTTP)
+
+		r.Get("/", productProxy.ServeHTTP)
+		r.Get("/{id}", productProxy.ServeHTTP)
+	})
 
 	orderProxy, err := createReverseProxyWithRewrite(gw.cfg.Order.Url, gw.cfg.Order.From, gw.cfg.Order.To)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create order proxy: %w", err)
 	}
-	mux.Mount(gw.cfg.Order.From, orderProxy)
+	mux.Group(func(r chi.Router) {
+		r.Use(middleware.AuthMiddleware(verifier))
+		r.Mount(gw.cfg.Order.From, orderProxy)
+	})
 
 	return &http.Server{
 		Addr:              fmt.Sprintf(":%d", gw.httpCfg.Port),
@@ -67,6 +83,10 @@ func createReverseProxyWithRewrite(targetURL, fromPath, toPath string) (http.Han
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	// Director will be called before the request is sent to the target.
 	proxy.Director = func(req *http.Request) {
+		userID := middleware.ContextUserID(req.Context())
+		if userID != "" {
+			req.Header.Set(web.XUserId, userID)
+		}
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
 		req.URL.Path = toPath + strings.TrimPrefix(req.URL.Path, fromPath)

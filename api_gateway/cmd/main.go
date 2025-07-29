@@ -10,9 +10,11 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/abgdnv/gocommerce/api_gateway/internal/config"
 	"github.com/abgdnv/gocommerce/api_gateway/internal/transport/rest"
+	"github.com/abgdnv/gocommerce/pkg/auth"
 	"github.com/abgdnv/gocommerce/pkg/bootstrap"
 	"github.com/abgdnv/gocommerce/pkg/config/configloader"
 	"golang.org/x/sync/errgroup"
@@ -45,8 +47,15 @@ func run(ctx context.Context) error {
 	g, gCtx := errgroup.WithContext(ctx)
 
 	// Start the API Gateway
+	startupCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	verifier, err := auth.NewJWTVerifier(startupCtx, cfg.IdP)
+	if err != nil {
+		return fmt.Errorf("failed to create JWT verifier: %w", err)
+	}
+
 	gw := rest.NewGW(cfg.HTTPServer, cfg.Services, logger)
-	httpServer, err := gw.SetupHTTPServer()
+	httpServer, err := gw.SetupHTTPServer(verifier)
 	if err != nil {
 		return err
 	}

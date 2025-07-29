@@ -1,14 +1,15 @@
 
 ############################# Product Service API #############################
 
-
 @host = localhost:8080
 @product_base_url = http://{{host}}/api/products
+@token = eyJhbGciO...
 
 ###
 
-//Create a new product
+# Create a new product
 POST {{product_base_url}} HTTP/1.1
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
@@ -23,18 +24,19 @@ Content-Type: application/json
 
 ###
 
-//Get an product by ID
+# Get an product by ID
 GET {{product_base_url}}/{{productID}} HTTP/1.1
 
 ###
 
-//Get all products
+# Get all products
 GET {{product_base_url}}?offset=0&limit=100 HTTP/1.1
 
 ###
 
-//Update an product by ID
+# Update an product by ID
 PUT {{product_base_url}}/{{productID}} HTTP/1.1
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
@@ -45,30 +47,31 @@ Content-Type: application/json
 }
 
 ###
-// update product stock
+# update product stock
 PUT {{product_base_url}}/{{productID}}/stock HTTP/1.1
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
   "stock": 50,
-  "version": 1
+  "version": 2
 }
 
 ###
 
-//Delete an product by ID
+# Delete an product by ID
 DELETE {{product_base_url}}/{{productID}}?version=3 HTTP/1.1
+Authorization: Bearer {{token}}
 
 ###
 
 ############################# Order Service API #############################
 
 @order_base_url = http://{{host}}/api/orders
-@user_id = 123e4567-e89b-12d3-a456-426614174000
 
-//Create a new order
+# Create a new order
 POST {{order_base_url}} HTTP/1.1
-X-User-Id: {{user_id}}
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
@@ -90,22 +93,22 @@ Content-Type: application/json
 
 ###
 
-//Get an order by ID
+# Get an order by ID
 GET {{order_base_url}}/{{orderID}} HTTP/1.1
-X-User-Id: {{user_id}}
+Authorization: Bearer {{token}}
 
 
 ###
 
-//Get all orders for a user
+# Get all orders for a user1
 GET {{order_base_url}}?offset=0&limit=100 HTTP/1.1
-X-User-Id: {{user_id}}
+Authorization: Bearer {{token}}
 
 ###
 
-//Update an order by ID
+# Update an order by ID
 PUT {{order_base_url}}/{{orderID}} HTTP/1.1
-X-User-Id: {{user_id}}
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
