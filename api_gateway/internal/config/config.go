@@ -30,6 +30,10 @@ type Services struct {
 		From string `koanf:"from"`
 		To   string `koanf:"to"`
 	} `koanf:"order"`
+	User struct {
+		From string                  `koanf:"from"`
+		Grpc config.GrpcClientConfig `koanf:"grpc"`
+	} `koanf:"user"`
 }
 
 func (c *Config) String() string {
@@ -44,12 +48,14 @@ func (c *Config) String() string {
 	b.WriteString(fmt.Sprintf("  server.timeout.readHeader: %v\n", c.HTTPServer.Timeout.ReadHeader))
 
 	b.WriteString("\n--- Services Configuration ---\n")
-	b.WriteString(fmt.Sprintf("  product.service.url: %s\n", c.Services.Product.Url))
-	b.WriteString(fmt.Sprintf("  product.service.from: %s\n", c.Services.Product.From))
-	b.WriteString(fmt.Sprintf("  product.service.to: %s\n", c.Services.Product.To))
-	b.WriteString(fmt.Sprintf("  order.service.url: %s\n", c.Services.Order.Url))
-	b.WriteString(fmt.Sprintf("  order.service.from: %s\n", c.Services.Order.From))
-	b.WriteString(fmt.Sprintf("  order.service.to: %s\n", c.Services.Order.To))
+	b.WriteString(fmt.Sprintf("  services.product.url: %s\n", c.Services.Product.Url))
+	b.WriteString(fmt.Sprintf("  services.product.from: %s\n", c.Services.Product.From))
+	b.WriteString(fmt.Sprintf("  services.product.to: %s\n", c.Services.Product.To))
+	b.WriteString(fmt.Sprintf("  services.order.url: %s\n", c.Services.Order.Url))
+	b.WriteString(fmt.Sprintf("  services.order.from: %s\n", c.Services.Order.From))
+	b.WriteString(fmt.Sprintf("  services.order.to: %s\n", c.Services.Order.To))
+	b.WriteString(fmt.Sprintf("  services.user.grpc.addr: %s\n", c.Services.User.Grpc.Addr))
+	b.WriteString(fmt.Sprintf("  services.user.grpc.timeout: %s\n", c.Services.User.Grpc.Timeout))
 
 	b.WriteString("\n--- Identity Provider ---\n")
 	b.WriteString(fmt.Sprintf("  idp.jwksurl: %s\n", c.IdP.JwksURL))
@@ -99,6 +105,12 @@ func (c *Config) Validate() error {
 	}
 	if c.Services.Order.To == "" {
 		return fmt.Errorf("order service 'to' field cannot be empty")
+	}
+	if c.Services.User.From == "" {
+		return fmt.Errorf("user service 'from' field cannot be empty")
+	}
+	if err := c.Services.User.Grpc.Validate(); err != nil {
+		return err
 	}
 	if err := c.IdP.Validate(); err != nil {
 		return err

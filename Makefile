@@ -14,7 +14,7 @@ proto: ## Generate Go code from Protobuf definitions
 		--proto_path=pkg/api/proto \
 		--go_out=pkg/api/gen/go --go_opt=paths=source_relative \
 		--go-grpc_out=pkg/api/gen/go --go-grpc_opt=paths=source_relative \
-		pkg/api/proto/product/v1/product.proto
+		$(shell find ./pkg/api/proto -name '*.proto')
 	@echo "✅ Protobuf code generated"
 
 .PHONY: sqlc

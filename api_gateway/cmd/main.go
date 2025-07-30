@@ -13,11 +13,16 @@ import (
 	"time"
 
 	"github.com/abgdnv/gocommerce/api_gateway/internal/config"
+	"github.com/abgdnv/gocommerce/api_gateway/internal/service"
 	"github.com/abgdnv/gocommerce/api_gateway/internal/transport/rest"
+	pb "github.com/abgdnv/gocommerce/pkg/api/gen/go/user/v1"
 	"github.com/abgdnv/gocommerce/pkg/auth"
 	"github.com/abgdnv/gocommerce/pkg/bootstrap"
+	"github.com/abgdnv/gocommerce/pkg/client/grpc/interceptors"
 	"github.com/abgdnv/gocommerce/pkg/config/configloader"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const serviceName = "gw"
@@ -44,6 +49,20 @@ func run(ctx context.Context) error {
 	logger := bootstrap.NewLogger(cfg.Log.Level)
 	slog.SetDefault(logger)
 
+	// Create a gRPC client connection to the User service
+	grpcClient, err := grpc.NewClient(
+		cfg.Services.User.Grpc.Addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(
+			interceptors.UnaryClientTimeoutInterceptor(cfg.Services.User.Grpc.Timeout),
+		),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create gRPC client connection: %w", err)
+	}
+	userClient := pb.NewUserServiceClient(grpcClient)
+	userService := service.NewUserService(userClient)
+
 	g, gCtx := errgroup.WithContext(ctx)
 
 	// Start the API Gateway
@@ -54,7 +73,7 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("failed to create JWT verifier: %w", err)
 	}
 
-	gw := rest.NewGW(cfg.HTTPServer, cfg.Services, logger)
+	gw := rest.NewGW(cfg.HTTPServer, userService, cfg.Services, logger)
 	httpServer, err := gw.SetupHTTPServer(verifier)
 	if err != nil {
 		return err

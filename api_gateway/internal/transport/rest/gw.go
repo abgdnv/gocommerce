@@ -1,6 +1,8 @@
 package rest
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -10,24 +12,32 @@ import (
 
 	sCfg "github.com/abgdnv/gocommerce/api_gateway/internal/config"
 	"github.com/abgdnv/gocommerce/api_gateway/internal/middleware"
+	"github.com/abgdnv/gocommerce/api_gateway/internal/service"
 	"github.com/abgdnv/gocommerce/pkg/auth"
 	"github.com/abgdnv/gocommerce/pkg/config"
 	"github.com/abgdnv/gocommerce/pkg/server"
 	"github.com/abgdnv/gocommerce/pkg/web"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-playground/validator/v10"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type GW struct {
-	httpCfg config.HTTPConfig
-	cfg     sCfg.Services
-	logger  *slog.Logger
+	httpCfg     config.HTTPConfig
+	cfg         sCfg.Services
+	userService *service.UserService
+	validate    *validator.Validate
+	logger      *slog.Logger
 }
 
-func NewGW(httpCfg config.HTTPConfig, cfg sCfg.Services, logger *slog.Logger) *GW {
+func NewGW(httpCfg config.HTTPConfig, userService *service.UserService, cfg sCfg.Services, logger *slog.Logger) *GW {
 	return &GW{
-		cfg:     cfg,
-		httpCfg: httpCfg,
-		logger:  logger.With("component", "gw"),
+		httpCfg:     httpCfg,
+		cfg:         cfg,
+		userService: userService,
+		validate:    validator.New(),
+		logger:      logger.With("component", "gw"),
 	}
 }
 
@@ -49,6 +59,10 @@ func (gw *GW) SetupHTTPServer(verifier *auth.JWTVerifier) (*http.Server, error) 
 
 		r.Get("/", productProxy.ServeHTTP)
 		r.Get("/{id}", productProxy.ServeHTTP)
+	})
+
+	mux.Group(func(r chi.Router) {
+		r.Post(gw.cfg.User.From, gw.userRegisterHandler())
 	})
 
 	orderProxy, err := createReverseProxyWithRewrite(gw.cfg.Order.Url, gw.cfg.Order.From, gw.cfg.Order.To)
@@ -92,4 +106,67 @@ func createReverseProxyWithRewrite(targetURL, fromPath, toPath string) (http.Han
 		req.URL.Path = toPath + strings.TrimPrefix(req.URL.Path, fromPath)
 	}
 	return proxy, nil
+}
+
+func (gw *GW) userRegisterHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		mLogger := gw.loggerWithReqID(r)
+		var userDto service.UserDto
+		if err := json.NewDecoder(r.Body).Decode(&userDto); err != nil {
+			mLogger.ErrorContext(r.Context(), "Error decoding request body", "error", err)
+			web.RespondError(w, mLogger, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+
+		mLogger.DebugContext(r.Context(), "Received request to register user", "user", userDto)
+		if err := gw.validate.Struct(userDto); err != nil {
+			var validationErrors validator.ValidationErrors
+			if errors.As(err, &validationErrors) {
+				// If the error is a validation error, we can extract field-specific errors.
+				errorResponse := make(map[string]string)
+				for _, fieldErr := range validationErrors {
+					// fieldErr.Tag() returns "required", "max", etc.
+					errorResponse[fieldErr.Field()] = "failed on rule: " + fieldErr.Tag()
+				}
+				mLogger.WarnContext(r.Context(), "Validation errors occurred", "errors", errorResponse)
+				web.RespondJSON(w, mLogger, http.StatusBadRequest, map[string]any{"validation_errors": errorResponse})
+				return
+			}
+			mLogger.ErrorContext(r.Context(), "Error validating request body", "error", err)
+			// If it's not a validation error, we can return a generic error.
+			web.RespondError(w, mLogger, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+
+		userID, err := gw.userService.Register(r.Context(), userDto)
+		if err != nil {
+			s, ok := status.FromError(err)
+			var httpStatus int
+			if ok {
+				switch s.Code() {
+				case codes.AlreadyExists:
+					httpStatus = http.StatusConflict
+				case codes.InvalidArgument:
+					httpStatus = http.StatusBadRequest
+				default:
+					httpStatus = http.StatusInternalServerError
+				}
+				web.RespondError(w, mLogger, httpStatus, s.Message())
+				return
+			}
+			web.RespondError(w, mLogger, http.StatusInternalServerError, "User registration error")
+			return
+		}
+
+		web.RespondJSON(w, mLogger, http.StatusCreated, map[string]string{"id": *userID})
+	}
+}
+
+// loggerWithReqID creates a logger with the request ID from the context.
+func (gw *GW) loggerWithReqID(r *http.Request) *slog.Logger {
+	reqID, found := web.GetRequestID(r.Context())
+	if !found {
+		reqID = "unknown"
+	}
+	return gw.logger.With("request_id", reqID)
 }

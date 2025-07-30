@@ -6,4 +6,5 @@ use (
 	./order_service
 	./pkg
 	./product_service
+	./user_service
 )

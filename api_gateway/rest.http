@@ -1,7 +1,8 @@
 
+@host = localhost:8080
+
 ############################# Product Service API #############################
 
-@host = localhost:8080
 @product_base_url = http://{{host}}/api/products
 @token = eyJhbGciO...
 
@@ -117,3 +118,18 @@ Content-Type: application/json
 }
 
 ###
+
+############################# User Service API #############################
+
+@user_register_url = http://{{host}}/api/auth/register
+
+POST {{user_register_url}}
+Content-Type: application/json
+
+{
+  "user_name": "jdoe",
+  "first_name": "John",
+  "last_name": "Doe",
+  "email": "jdoe@example.com",
+  "password": "password"
+}
