@@ -1,0 +1,15 @@
+log:
+  level: info
+pprof:
+  enabled: false
+  addr: "localhost:6060"
+grpc:
+  port: 50051
+  reflection: false
+idp:
+  url: http://keycloak:8080
+  realm: gocommerce
+  clientid: gocommerce-api
+  secret: secret
+shutdown:
+  timeout: 5s

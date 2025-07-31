@@ -20,5 +20,15 @@ services:
     url: "http://order_service:8080"
     from: "/api/orders"
     to: "/api/v1/orders"
+  user:
+    grpc:
+      addr: user_service:50051
+      timeout: 2s
+    from: /api/auth/register
+idp:
+  jwksurl: http://keycloak:8080/realms/gocommerce/protocol/openid-connect/certs
+  issuer: http://localhost:8181/realms/gocommerce
+  clientid: gocommerce-api
+  mininterval: 15m
 shutdown:
   timeout: 5s

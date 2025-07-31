@@ -10,6 +10,7 @@ subscriber:
   stream: "ORDERS"
   subject: "orders.created"
   consumer: "notification_service"
+  batch: 10
   timeout: 5s
   interval: 1s
   workers: 3

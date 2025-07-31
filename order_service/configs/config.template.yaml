@@ -18,6 +18,7 @@ services:
   product:
     grpc:
       addr: "localhost:50051"
+      timeout: 2s
 nats:
   url: "nats://localhost:4222"
   timeout: 2s
