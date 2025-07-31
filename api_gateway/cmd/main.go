@@ -116,6 +116,29 @@ func run(ctx context.Context) error {
 		})
 	}
 
+	// gracefully shutdown grpc client
+	g.Go(func() error {
+		<-gCtx.Done()
+		logger.Info("Shutting down grpc client")
+
+		closeDone := make(chan struct{})
+		go func() {
+			err := grpcClient.Close()
+			if err != nil {
+				logger.Error("failed to close gRPC client connection")
+			}
+			close(closeDone)
+		}()
+
+		select {
+		case <-closeDone:
+			logger.Info("gRPC client connection closed successfully")
+			return nil
+		case <-time.After(cfg.Shutdown.Timeout):
+			return fmt.Errorf("failed to close gRPC client connection")
+		}
+	})
+
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return fmt.Errorf("errgroup encountered an error: %w", err)
 	}
