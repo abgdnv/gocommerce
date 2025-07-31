@@ -43,19 +43,21 @@ func (m *mockGoCloakClient) DeleteUser(context.Context, string, string, string) 
 // TestUserService_Register tests the Register method of the UserService
 func TestUserService_Register(t *testing.T) {
 	ctx := context.Background()
-	userDto := CreateUserDto{
+	validUser := CreateUserDto{
 		UserName:  "jdoe",
 		FirstName: "John",
 		LastName:  "Doe",
 		Email:     "jdoe@example.com",
 		Password:  "password",
 	}
+	invalidUser := CreateUserDto{}
 	successToken := &gocloak.JWT{AccessToken: "token"}
 
 	// given
 	tests := []struct {
 		name         string
 		mock         *mockGoCloakClient
+		userDto      CreateUserDto
 		expectedErr  error
 		expectDelete bool
 	}{
@@ -65,12 +67,20 @@ func TestUserService_Register(t *testing.T) {
 				loginToken: successToken,
 				createID:   "uid",
 			},
+			userDto: validUser,
+		},
+		{
+			name:        "invalid user data",
+			mock:        &mockGoCloakClient{},
+			userDto:     invalidUser,
+			expectedErr: ErrInvalidUserData,
 		},
 		{
 			name: "login error",
 			mock: &mockGoCloakClient{
 				loginErr: errors.New("login fail"),
 			},
+			userDto:     validUser,
 			expectedErr: ErrIdPInteractionFailed,
 		},
 		{
@@ -79,6 +89,7 @@ func TestUserService_Register(t *testing.T) {
 				loginToken: successToken,
 				createErr:  &gocloak.APIError{Code: http.StatusConflict},
 			},
+			userDto:     validUser,
 			expectedErr: ErrUserAlreadyExists,
 		},
 		{
@@ -87,6 +98,7 @@ func TestUserService_Register(t *testing.T) {
 				loginToken: successToken,
 				createErr:  &gocloak.APIError{Code: http.StatusBadRequest},
 			},
+			userDto:     validUser,
 			expectedErr: ErrInvalidUserData,
 		},
 		{
@@ -95,6 +107,7 @@ func TestUserService_Register(t *testing.T) {
 				loginToken: successToken,
 				createErr:  errors.New("fail"),
 			},
+			userDto:     validUser,
 			expectedErr: ErrIdPInteractionFailed,
 		},
 		{
@@ -104,6 +117,7 @@ func TestUserService_Register(t *testing.T) {
 				createID:   "uid",
 				setPwdErr:  errors.New("fail"),
 			},
+			userDto:      validUser,
 			expectedErr:  ErrIdPInteractionFailed,
 			expectDelete: true,
 		},
@@ -115,7 +129,7 @@ func TestUserService_Register(t *testing.T) {
 			svc := NewService(tc.mock, "realm", "client", "secret")
 
 			// when
-			id, err := svc.Register(ctx, userDto)
+			id, err := svc.Register(ctx, tc.userDto)
 
 			// then
 			if tc.expectedErr != nil {

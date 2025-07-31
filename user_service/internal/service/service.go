@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/Nerzal/gocloak/v13"
+	"github.com/go-playground/validator/v10"
 )
 
 // GoCloakClient defines the subset of the gocloak client used by the service.
@@ -23,21 +24,32 @@ type UserService struct {
 	realm    string
 	clientID string
 	secret   string
+	validate *validator.Validate
 }
 
 type CreateUserDto struct {
-	UserName  string `json:"user_name"   validate:"required"`
-	FirstName string `json:"first_name"  validate:"required"`
-	LastName  string `json:"last_name"   validate:"required"`
-	Email     string `json:"email"       validate:"email"`
-	Password  string `json:"password"    validate:"required"`
+	UserName  string `json:"user_name" validate:"required"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email" validate:"required,email"`
+	Password  string `json:"password" validate:"required"`
 }
 
 func NewService(gocloak GoCloakClient, realm, clientID, secret string) *UserService {
-	return &UserService{gocloak: gocloak, realm: realm, clientID: clientID, secret: secret}
+	return &UserService{
+		gocloak:  gocloak,
+		realm:    realm,
+		clientID: clientID,
+		secret:   secret,
+		validate: validator.New(),
+	}
 }
 
 func (u *UserService) Register(ctx context.Context, userDto CreateUserDto) (*string, error) {
+	if err := u.validate.Struct(userDto); err != nil {
+		slog.Error("Failed to validate user", "error", err)
+		return nil, ErrInvalidUserData
+	}
 	user := gocloak.User{
 		Username:  gocloak.StringP(userDto.UserName),
 		Email:     gocloak.StringP(userDto.Email),

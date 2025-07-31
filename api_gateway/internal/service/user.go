@@ -13,11 +13,11 @@ type UserService struct {
 
 // UserDto represents the data transfer object for user registration
 type UserDto struct {
-	UserName  string `json:"user_name" validate:"required"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Email     string `json:"email" validate:"required,email"`
-	Password  string `json:"password" validate:"required"`
+	UserName  string
+	FirstName string
+	LastName  string
+	Email     string
+	Password  string
 }
 
 // NewUserService creates a service for interact with User service via gRPC

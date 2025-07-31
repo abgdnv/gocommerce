@@ -2,7 +2,6 @@ package rest
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -18,7 +17,6 @@ import (
 	"github.com/abgdnv/gocommerce/pkg/server"
 	"github.com/abgdnv/gocommerce/pkg/web"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-playground/validator/v10"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -27,7 +25,6 @@ type GW struct {
 	httpCfg     config.HTTPConfig
 	cfg         sCfg.Services
 	userService *service.UserService
-	validate    *validator.Validate
 	logger      *slog.Logger
 }
 
@@ -36,7 +33,6 @@ func NewGW(httpCfg config.HTTPConfig, userService *service.UserService, cfg sCfg
 		httpCfg:     httpCfg,
 		cfg:         cfg,
 		userService: userService,
-		validate:    validator.New(),
 		logger:      logger.With("component", "gw"),
 	}
 }
@@ -117,27 +113,7 @@ func (gw *GW) userRegisterHandler() http.HandlerFunc {
 			web.RespondError(w, mLogger, http.StatusBadRequest, "Invalid request body")
 			return
 		}
-
 		mLogger.DebugContext(r.Context(), "Received request to register user", "user", userDto)
-		if err := gw.validate.Struct(userDto); err != nil {
-			var validationErrors validator.ValidationErrors
-			if errors.As(err, &validationErrors) {
-				// If the error is a validation error, we can extract field-specific errors.
-				errorResponse := make(map[string]string)
-				for _, fieldErr := range validationErrors {
-					// fieldErr.Tag() returns "required", "max", etc.
-					errorResponse[fieldErr.Field()] = "failed on rule: " + fieldErr.Tag()
-				}
-				mLogger.WarnContext(r.Context(), "Validation errors occurred", "errors", errorResponse)
-				web.RespondJSON(w, mLogger, http.StatusBadRequest, map[string]any{"validation_errors": errorResponse})
-				return
-			}
-			mLogger.ErrorContext(r.Context(), "Error validating request body", "error", err)
-			// If it's not a validation error, we can return a generic error.
-			web.RespondError(w, mLogger, http.StatusBadRequest, "Invalid request body")
-			return
-		}
-
 		userID, err := gw.userService.Register(r.Context(), userDto)
 		if err != nil {
 			s, ok := status.FromError(err)
@@ -157,7 +133,6 @@ func (gw *GW) userRegisterHandler() http.HandlerFunc {
 			web.RespondError(w, mLogger, http.StatusInternalServerError, "User registration error")
 			return
 		}
-
 		web.RespondJSON(w, mLogger, http.StatusCreated, map[string]string{"id": *userID})
 	}
 }
