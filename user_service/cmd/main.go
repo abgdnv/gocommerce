@@ -1,4 +1,3 @@
-// Package main implements a simple HTTP server for managing products.
 package main
 
 import (

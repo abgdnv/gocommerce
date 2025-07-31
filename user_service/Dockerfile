@@ -21,6 +21,6 @@ COPY --from=builder /app/user_service/app .
 RUN adduser -D -g '' appuser && chown appuser:appuser /app/app
 USER appuser
 
-EXPOSE 8080
+EXPOSE 50051
 
 CMD ["./app"]
