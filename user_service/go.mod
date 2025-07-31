@@ -7,11 +7,13 @@ replace github.com/abgdnv/gocommerce/pkg => ../pkg
 require (
 	github.com/Nerzal/gocloak/v13 v13.9.0
 	github.com/abgdnv/gocommerce/pkg v0.0.0-20250729103738-5f97b90ff4b1
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/sync v0.16.0
 	google.golang.org/grpc v1.74.2
 )
 
 require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-chi/chi/v5 v5.2.2 // indirect
 	github.com/go-resty/resty/v2 v2.7.0 // indirect
@@ -33,7 +35,9 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/segmentio/ksuid v1.0.4 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.40.0 // indirect
 	golang.org/x/net v0.42.0 // indirect
@@ -41,4 +45,5 @@ require (
 	golang.org/x/text v0.27.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250728155136-f173205681a0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

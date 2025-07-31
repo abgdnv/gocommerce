@@ -50,6 +50,6 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 		return nil, status.Error(codes.Internal, "internal server error")
 	}
 
-	logger.Info("send grpc response", "userID", userID)
+	logger.Info("send grpc response", "userID", *userID)
 	return &pb.RegisterResponse{Id: *userID}, nil
 }

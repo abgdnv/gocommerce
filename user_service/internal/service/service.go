@@ -10,8 +10,16 @@ import (
 	"github.com/Nerzal/gocloak/v13"
 )
 
+// GoCloakClient defines the subset of the gocloak client used by the service.
+type GoCloakClient interface {
+	LoginClient(ctx context.Context, clientID, clientSecret, realm string, scopes ...string) (*gocloak.JWT, error)
+	CreateUser(ctx context.Context, token, realm string, user gocloak.User) (string, error)
+	SetPassword(ctx context.Context, token, userID, realm, password string, temporary bool) error
+	DeleteUser(ctx context.Context, token, realm, userID string) error
+}
+
 type UserService struct {
-	gocloak  *gocloak.GoCloak
+	gocloak  GoCloakClient
 	realm    string
 	clientID string
 	secret   string
@@ -25,7 +33,7 @@ type CreateUserDto struct {
 	Password  string `json:"password"    validate:"required"`
 }
 
-func NewService(gocloak *gocloak.GoCloak, realm, clientID, secret string) *UserService {
+func NewService(gocloak GoCloakClient, realm, clientID, secret string) *UserService {
 	return &UserService{gocloak: gocloak, realm: realm, clientID: clientID, secret: secret}
 }
 
