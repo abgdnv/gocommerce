@@ -1,0 +1,14 @@
+apiVersion: v2
+name: gocommerce-infra
+description: A Helm chart for the core infrastructure of the GoCommerce platform (Database, Migrations, etc.)
+type: application
+version: 0.1.0
+
+dependencies:
+  - name: platform-database
+    version: "0.0.1"
+    repository: "file://../platform-database"
+
+  - name: db-migrations
+    version: "0.0.1"
+    repository: "file://../db-migrations"

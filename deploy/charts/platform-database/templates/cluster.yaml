@@ -1,0 +1,19 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.clusterName }}
+spec:
+  instances: {{ .Values.instances }}
+  bootstrap:
+    initdb:
+      owner: gocommerce_pg_owner
+  storage:
+    size: {{ .Values.storage }}
+  managed:
+    roles:
+      {{- range .Values.users }}
+      - name: {{ .name }}
+        login: true
+        passwordSecret:
+          name: {{ $.Values.clusterName }}-{{ .name | replace "_" "-" }}
+      {{- end }}

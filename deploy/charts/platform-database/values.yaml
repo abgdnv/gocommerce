@@ -1,0 +1,8 @@
+clusterName: gocommerce-pg
+instances: 1
+storage: 1Gi
+users:
+  - name: products_user
+    database: products_db
+  - name: orders_user
+    database: orders_db

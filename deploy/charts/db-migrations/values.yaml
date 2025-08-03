@@ -1,0 +1,16 @@
+migrate_img: migrate/migrate:4
+psql_img: alpine/psql:17.5
+
+secrets:
+  products: gocommerce-pg-products-user
+  orders: gocommerce-pg-orders-user
+
+db:
+  products:
+    name: products_db
+    user: products_user
+  orders:
+    name: orders_db
+    user: orders_user
+
+dbHost: gocommerce-pg-rw

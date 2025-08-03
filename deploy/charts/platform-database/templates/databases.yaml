@@ -1,0 +1,15 @@
+{{- range .Values.users }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: {{ $.Values.clusterName }}-{{ .database | replace "_" "-" }}
+spec:
+  name: {{ .database }}
+  owner: {{ .name }}
+  cluster:
+    name: {{ $.Values.clusterName }}
+  schemas:
+    - name: public
+      owner: {{ .name }}
+{{ end }}

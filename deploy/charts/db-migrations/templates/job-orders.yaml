@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-migrate-orders-db"
+  labels:
+    app: migrate-orders
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: wait-for-postgres
+        image: {{ .Values.psql_img }}
+        env:
+          - name: PGPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.secrets.orders }}
+                key: password
+        command: [ 'sh', '-c',
+                   'until psql -h {{ .Values.dbHost }} -U {{ .Values.db.orders.user }} -d {{ .Values.db.orders.name }} -c "\\q"; do echo "Waiting for database {{ .Values.db.orders.name }}..."; sleep 10; done;' ]
+      containers:
+        - name: migrate-orders
+          image: {{ .Values.migrate_img }}
+          command: [ "/bin/sh", "-c" ]
+          args:
+            - |
+              POSTGRES_URL="postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@{{ .Values.dbHost }}/{{ .Values.db.orders.name }}?sslmode=disable"
+              /usr/local/bin/migrate -path /migrations -database "$POSTGRES_URL" up
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.orders }}
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.orders }}
+                  key: password
+          volumeMounts:
+            - name: order-migrations-volume
+              mountPath: /migrations
+      volumes:
+        - name: order-migrations-volume
+          configMap:
+            name: {{ .Release.Name }}-order-migrations
+      restartPolicy: Never

@@ -96,7 +96,7 @@ services:
     container_name: product-migrator
     command: [ "-path", "/migrations", "-database", "${PRODUCT_SVC_DATABASE_URL}", "up" ]
     volumes:
-      - ./deploy/migrations/product_service:/migrations
+      - ./deploy/charts/db-migrations/migrations/product_service:/migrations
     networks:
       - ecommerce-network
     depends_on:
@@ -145,7 +145,7 @@ services:
     container_name: order-migrator
     command: [ "-path", "/migrations", "-database", "${ORDER_SVC_DATABASE_URL}", "up" ]
     volumes:
-      - ./deploy/migrations/order_service:/migrations
+      - ./deploy/charts/db-migrations/migrations/order_service:/migrations
     networks:
       - ecommerce-network
     depends_on:

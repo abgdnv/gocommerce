@@ -87,7 +87,7 @@ func (s *OrderStoreSuite) SetupSuite() {
 	// 4. Database migration
 	// Build path to migrations directory
 	wd, _ := os.Getwd()
-	migrationsPath := filepath.Join(wd, "../../../deploy/migrations/order_service")
+	migrationsPath := filepath.Join(wd, "../../../deploy/charts/db-migrations/migrations/order_service")
 	sourceURL := "file://" + migrationsPath
 	// Create a new migrate instance with the source URL and connection string
 	m, err := migrate.New(sourceURL, connStr)
