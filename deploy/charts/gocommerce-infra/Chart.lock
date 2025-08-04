@@ -5,5 +5,8 @@ dependencies:
 - name: db-migrations
   repository: file://../db-migrations
   version: 0.0.1
-digest: sha256:014bb2c1c57086022015be844df631a54bb8017304d8b517df2dcba555667ff0
-generated: "2025-08-03T00:35:33.242689021+02:00"
+- name: keycloak
+  repository: file://../keycloak
+  version: 0.0.1
+digest: sha256:d287329030f650b8272e1e4c63cb673336c3bb8b47e68ca3e1dbabe9c8c2da28
+generated: "2025-08-03T22:29:17.679706279+02:00"

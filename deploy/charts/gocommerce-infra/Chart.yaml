@@ -12,3 +12,7 @@ dependencies:
   - name: db-migrations
     version: "0.0.1"
     repository: "file://../db-migrations"
+
+  - name: keycloak
+    version: "0.0.1"
+    repository: "file://../keycloak"

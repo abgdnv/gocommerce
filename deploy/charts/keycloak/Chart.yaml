@@ -1,0 +1,10 @@
+apiVersion: v2
+name: keycloak
+description: A Keycloak chart with import of the initial `gocommerce` realm.
+type: application
+version: 0.0.1
+
+dependencies:
+  - name: keycloakx
+    version: "7.0.1"
+    repository: "https://codecentric.github.io/helm-charts"

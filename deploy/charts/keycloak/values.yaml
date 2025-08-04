@@ -1,0 +1,41 @@
+keycloakx:
+  image:
+    tag: "26.3"
+  replicas: 1
+  database:
+    vendor: postgres
+    hostname: gocommerce-pg-rw
+    port: "5432"
+    username: keycloak_user
+    existingSecret: gocommerce-pg-keycloak-user
+    database: keycloak_db
+  command:
+    - "/opt/keycloak/bin/kc.sh"
+    - "--verbose"
+    - "start"
+    - "--import-realm"
+    - "--http-port=8080"
+    - "--hostname-strict=false"
+    - "--spi-events-listener-jboss-logging-success-level=info"
+    - "--spi-events-listener-jboss-logging-error-level=warn"
+  dbchecker:
+    enabled: true
+  cache:
+    stack: "custom"
+  extraEnv: |
+    - name: KC_BOOTSTRAP_ADMIN_USERNAME
+      value: "admin"
+    - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+      value: "admin"
+    - name: KC_CACHE
+      value: "ispn"
+    - name: KC_CACHE_STACK
+      value: "jdbc-ping"
+  extraVolumeMounts: |
+    - name: realm
+      mountPath: "/opt/keycloak/data/import"
+      readOnly: true
+  extraVolumes: |
+    - name: realm
+      configMap:
+        name: realm

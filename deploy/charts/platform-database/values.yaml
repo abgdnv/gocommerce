@@ -6,3 +6,5 @@ users:
     database: products_db
   - name: orders_user
     database: orders_db
+  - name: keycloak_user
+    database: keycloak_db
