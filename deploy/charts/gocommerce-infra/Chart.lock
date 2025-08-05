@@ -8,5 +8,8 @@ dependencies:
 - name: keycloak
   repository: file://../keycloak
   version: 0.0.1
-digest: sha256:d287329030f650b8272e1e4c63cb673336c3bb8b47e68ca3e1dbabe9c8c2da28
-generated: "2025-08-03T22:29:17.679706279+02:00"
+- name: nats
+  repository: file://../nats
+  version: 0.0.1
+digest: sha256:c585850b6fae7f26779952a7563bb1d09c773aabcfc193171277c8e46d2affcd
+generated: "2025-08-05T14:36:38.394005322+02:00"

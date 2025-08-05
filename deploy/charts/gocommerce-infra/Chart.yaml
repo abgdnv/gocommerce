@@ -16,3 +16,7 @@ dependencies:
   - name: keycloak
     version: "0.0.1"
     repository: "file://../keycloak"
+
+  - name: nats
+    version: "0.0.1"
+    repository: "file://../nats"
