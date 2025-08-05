@@ -51,7 +51,7 @@ services:
       test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${NATS_INTERNAL_MONITORING_PORT}/healthz || exit 1" ]
       interval: 5s
       timeout: 5s
-      retries: 3
+      retries: 5
       start_period: 10s
 
   nats-stream-setup:
@@ -59,11 +59,22 @@ services:
     container_name: nats-stream-setup
     command: >
       sh -c "
-        nats --server=nats:4222 stream create --config=/config/stream_orders.json ||
-        nats --server=nats:4222 stream update ORDERS --config=/config/stream_orders.json -f
+        set -e
+        for stream_config_file in /config/*.json; do
+          echo \"Processing stream config: $$stream_config_file\"
+          STREAM_NAME=$$(jq -r '.name' \"$$stream_config_file\")
+          if [ -z \"$$STREAM_NAME\" ]; then
+            echo \"Error: Could not find .name in $$stream_config_file\"
+            exit 1
+          fi
+          echo \"Applying config for stream: $$STREAM_NAME\"
+          nats --server=nats:4222 stream create --config=\"$$stream_config_file\" || \
+          nats --server=nats:4222 stream update \"$$STREAM_NAME\" --\"config=$$stream_config_file\" -f
+        done
+        echo \"All stream configurations applied successfully.\"
       "
     volumes:
-      - ./docker/nats/stream_orders.json:/config/stream_orders.json
+      - ./deploy/charts/nats/streams:/config
     networks:
       - ecommerce-network
     depends_on:
@@ -90,6 +101,23 @@ services:
       - ./deploy/charts/keycloak/realm/:/opt/keycloak/data/import
     networks:
       - ecommerce-network
+
+  kc_check:
+    image: busybox:1.37
+    container_name: kc_check
+    command: >
+      sh -c '
+        set -e
+        echo "Waiting for keycloak at keycloak:8080..."
+        until printf "." && nc -z -w 2 keycloak 8080; do
+            sleep 2;
+        done;
+      '
+    networks:
+      - ecommerce-network
+    depends_on:
+      keycloak:
+        condition: service_started
 
   product_migrator:
     image: migrate/migrate:4
@@ -264,8 +292,12 @@ services:
     networks:
       - ecommerce-network
     depends_on:
-      - product_service
-      - order_service
+      product_service:
+        condition: service_started
+      order_service:
+        condition: service_started
+      kc_check:
+        condition: service_completed_successfully
 
   user_service:
     build:
@@ -294,4 +326,5 @@ services:
     networks:
       - ecommerce-network
     depends_on:
-      - keycloak
+      kc_check:
+        condition: service_completed_successfully
