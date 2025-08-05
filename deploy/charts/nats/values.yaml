@@ -1,0 +1,22 @@
+nats:
+  config:
+    cluster:
+      enabled: false
+      port: 6222
+      replicas: 1
+    jetstream:
+      enabled: true
+      fileStore:
+        enabled: true
+        dir: /data
+    nats:
+      port: 4222
+  container:
+    image:
+      repository: nats
+      tag: 2.11.6-alpine
+  podTemplate:
+    topologySpreadConstraints:
+      kubernetes.io/hostname:
+        maxSkew: 1
+        whenUnsatisfiable: DoNotSchedule
