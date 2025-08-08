@@ -6,8 +6,13 @@ server:
     write: 10s
     idle: 60s
     readHeader: 5s
-database:
-  url: "postgresql://user:password@localhost:5432/orders_db?sslmode=disable"
+db:
+  host: localhost
+  port: 5432
+  user: user
+  password: password
+  name: orders_db
+  sslmode: disable
   timeout: 10s
 log:
   level: info

@@ -50,7 +50,7 @@ func run(ctx context.Context) error {
 	logger := bootstrap.NewLogger(cfg.Log.Level)
 	slog.SetDefault(logger)
 
-	dbPool, err := bootstrap.NewDbPool(ctx, cfg.Database.URL, cfg.Database.Timeout)
+	dbPool, err := bootstrap.NewDbPool(ctx, cfg.Database.URI(), cfg.Database.Timeout)
 	if err != nil {
 		return fmt.Errorf("failed to create database connection pool: %w", err)
 	}

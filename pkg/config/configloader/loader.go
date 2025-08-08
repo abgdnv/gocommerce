@@ -27,7 +27,7 @@ func Load[T Validator](serviceName string) (T, error) {
 	// and located in the "configs" directory.
 	// envPrefix is set to <service_name>_SVC_ to match environment variables.
 	configFile := "config.yaml"
-	envPrefix := fmt.Sprintf("%s_SVC_", strings.ToUpper(serviceName))
+	envPrefix := fmt.Sprintf("%s_", strings.ToUpper(serviceName))
 
 	// 1. Load configuration from yaml file
 	if err := k.Load(file.Provider(configFile), yaml.Parser()); err != nil {

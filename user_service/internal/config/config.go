@@ -43,22 +43,12 @@ func (c *IdP) Validate() error {
 
 func (c *Config) String() string {
 	var b strings.Builder
-
 	b.WriteString("\n--- Identity Provider ---\n")
 	b.WriteString(fmt.Sprintf("  idp.clientid: %s\n", c.IdP.ClientID))
-
-	b.WriteString("\n--- gRPC Configuration ---\n")
-	b.WriteString(fmt.Sprintf("  grpc.port: %s\n", c.GRPC.Port))
-	b.WriteString(fmt.Sprintf("  grpc.reflection_enabled: %t\n", c.GRPC.ReflectionEnabled))
-
-	b.WriteString("\n--- Observability & Logging ---\n")
-	b.WriteString(fmt.Sprintf("  log.level: %s\n", c.Log.Level))
-	b.WriteString(fmt.Sprintf("  pprof.enabled: %t\n", c.PProf.Enabled))
-	b.WriteString(fmt.Sprintf("  pprof.address: %s\n", c.PProf.Addr))
-
-	b.WriteString("\n--- Application Behavior ---\n")
-	b.WriteString(fmt.Sprintf("  shutdown.timeout: %s\n", c.Shutdown.Timeout))
-
+	b.WriteString(c.GRPC.String())
+	b.WriteString(c.Log.String())
+	b.WriteString(c.PProf.String())
+	b.WriteString(c.Shutdown.String())
 	return b.String()
 }
 

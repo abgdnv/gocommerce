@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -14,6 +15,19 @@ type HTTPConfig struct {
 		Idle       time.Duration `koanf:"idle"`
 		ReadHeader time.Duration `koanf:"readHeader"`
 	} `koanf:"timeout"`
+}
+
+// String returns a string representation of the HTTP server configuration.
+func (c *HTTPConfig) String() string {
+	var b strings.Builder
+	b.WriteString("\n--- HTTP Server ---\n")
+	b.WriteString(fmt.Sprintf("  port: %d\n", c.Port))
+	b.WriteString(fmt.Sprintf("  maxHeaderBytes: %d\n", c.MaxHeaderBytes))
+	b.WriteString(fmt.Sprintf("  timeout.read: %s\n", c.Timeout.Read))
+	b.WriteString(fmt.Sprintf("  timeout.write: %s\n", c.Timeout.Write))
+	b.WriteString(fmt.Sprintf("  timeout.idle: %s\n", c.Timeout.Idle))
+	b.WriteString(fmt.Sprintf("  timeout.readHeader: %s\n", c.Timeout.ReadHeader))
+	return b.String()
 }
 
 func (c *HTTPConfig) Validate() error {

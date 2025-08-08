@@ -38,39 +38,24 @@ type Services struct {
 
 func (c *Config) String() string {
 	var b strings.Builder
-
-	b.WriteString("\n--- Server Configuration ---\n")
-	b.WriteString(fmt.Sprintf("  server.port: %d\n", c.HTTPServer.Port))
-	b.WriteString(fmt.Sprintf("  server.maxHeaderBytes: %d\n", c.HTTPServer.MaxHeaderBytes))
-	b.WriteString(fmt.Sprintf("  server.timeout.read: %v\n", c.HTTPServer.Timeout.Read))
-	b.WriteString(fmt.Sprintf("  server.timeout.write: %v\n", c.HTTPServer.Timeout.Write))
-	b.WriteString(fmt.Sprintf("  server.timeout.idle: %v\n", c.HTTPServer.Timeout.Idle))
-	b.WriteString(fmt.Sprintf("  server.timeout.readHeader: %v\n", c.HTTPServer.Timeout.ReadHeader))
+	b.WriteString(c.HTTPServer.String())
 
 	b.WriteString("\n--- Services Configuration ---\n")
-	b.WriteString(fmt.Sprintf("  services.product.url: %s\n", c.Services.Product.Url))
-	b.WriteString(fmt.Sprintf("  services.product.from: %s\n", c.Services.Product.From))
-	b.WriteString(fmt.Sprintf("  services.product.to: %s\n", c.Services.Product.To))
-	b.WriteString(fmt.Sprintf("  services.order.url: %s\n", c.Services.Order.Url))
-	b.WriteString(fmt.Sprintf("  services.order.from: %s\n", c.Services.Order.From))
-	b.WriteString(fmt.Sprintf("  services.order.to: %s\n", c.Services.Order.To))
-	b.WriteString(fmt.Sprintf("  services.user.grpc.addr: %s\n", c.Services.User.Grpc.Addr))
-	b.WriteString(fmt.Sprintf("  services.user.grpc.timeout: %s\n", c.Services.User.Grpc.Timeout))
+	b.WriteString(fmt.Sprintf("  product.url: %s\n", c.Services.Product.Url))
+	b.WriteString(fmt.Sprintf("  product.from: %s\n", c.Services.Product.From))
+	b.WriteString(fmt.Sprintf("  product.to: %s\n", c.Services.Product.To))
+	b.WriteString("\n")
+	b.WriteString(fmt.Sprintf("  order.url: %s\n", c.Services.Order.Url))
+	b.WriteString(fmt.Sprintf("  order.from: %s\n", c.Services.Order.From))
+	b.WriteString(fmt.Sprintf("  order.to: %s\n", c.Services.Order.To))
+	b.WriteString("\n")
+	b.WriteString(fmt.Sprintf("  user.grpc.addr: %s\n", c.Services.User.Grpc.Addr))
+	b.WriteString(fmt.Sprintf("  user.grpc.timeout: %s\n", c.Services.User.Grpc.Timeout))
 
-	b.WriteString("\n--- Identity Provider ---\n")
-	b.WriteString(fmt.Sprintf("  idp.jwksurl: %s\n", c.IdP.JwksURL))
-	b.WriteString(fmt.Sprintf("  idp.issuer: %s\n", c.IdP.Issuer))
-	b.WriteString(fmt.Sprintf("  idp.clientid: %s\n", c.IdP.ClientID))
-	b.WriteString(fmt.Sprintf("  idp.mininterval: %v\n", c.IdP.MinInterval))
-
-	b.WriteString("\n--- Observability & Logging ---\n")
-	b.WriteString(fmt.Sprintf("  log.level: %s\n", c.Log.Level))
-	b.WriteString(fmt.Sprintf("  pprof.enabled: %t\n", c.PProf.Enabled))
-	b.WriteString(fmt.Sprintf("  pprof.address: %s\n", c.PProf.Addr))
-
-	b.WriteString("\n--- Application Behavior ---\n")
-	b.WriteString(fmt.Sprintf("  shutdown.timeout: %s\n", c.Shutdown.Timeout))
-
+	b.WriteString(c.IdP.String())
+	b.WriteString(c.Log.String())
+	b.WriteString(c.PProf.String())
+	b.WriteString(c.Shutdown.String())
 	return b.String()
 }
 
