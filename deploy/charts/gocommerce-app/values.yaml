@@ -1,0 +1,7 @@
+product:
+  replicaCount: 1
+  image:
+    repository: product-service
+    tag: "0.1.0"
+  env:
+    PRODUCT_LOG_LEVEL: "info"

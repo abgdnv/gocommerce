@@ -68,5 +68,20 @@ tidy: ## Run tests in all modules with verbose output
 		(cd $$dir && go mod tidy); \
 	done
 
+.PHONY: helm-deps
+helm-deps: ## Update Helm dependencies for charts
+	@echo "--> Updating Helm dependencies..."
+	@helm dependency update ./deploy/charts/gocommerce-infra
+	@helm dependency update ./deploy/charts/gocommerce-app
+	@echo "✅  Helm dependencies updated."
+
+.PHONY: template-infra
+template-infra: helm-deps ## Template Helm chart for infrastructure
+	@helm template gocommerce-infra ./deploy/charts/gocommerce-infra
+
+.PHONY: template-app
+template-app: helm-deps ## Template Helm chart for application
+	@helm template gocommerce-app ./deploy/charts/gocommerce-app
+
 	@echo "Done."
 .DEFAULT_GOAL := help

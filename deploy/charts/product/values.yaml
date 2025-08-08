@@ -1,0 +1,83 @@
+replicaCount: 1
+
+image:
+  repository: product-service
+  pullPolicy: IfNotPresent
+  tag: "0.1.0"
+
+podLabels:
+  component: api
+  team: backend
+
+service:
+  type: ClusterIP
+  httpPort: 8080
+  grpcPort: 50051
+  pprofPort: 6060
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 30
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 30
+
+env:
+  PRODUCT_DB_HOST: gocommerce-pg-rw
+  PRODUCT_DB_PORT: "5432"
+  PRODUCT_DB_NAME: products_db
+  PRODUCT_DB_SSLMODE: disable
+  PRODUCT_DB_TIMEOUT: "10s"
+  PRODUCT_SERVER_PORT: "8080"
+  PRODUCT_SERVER_MAXHEADERBYTES: "1048576"
+  PRODUCT_SERVER_TIMEOUT_READ: "10s"
+  PRODUCT_SERVER_TIMEOUT_WRITE: "10s"
+  PRODUCT_SERVER_TIMEOUT_IDLE: "60s"
+  PRODUCT_SERVER_TIMEOUT_READHEADER: "5s"
+  PRODUCT_GRPC_PORT: "50051"
+  PRODUCT_GRPC_REFLECTION: "true"
+  PRODUCT_LOG_LEVEL: "info"
+  PRODUCT_PPROF_ENABLED: "true"
+  PRODUCT_PPROF_ADDR: ":6060"
+  PRODUCT_SHUTDOWN_TIMEOUT: "5s"
+
+envFromSecret:
+  PRODUCT_DB_USER:
+    name: gocommerce-pg-products-user
+    key: username
+  PRODUCT_DB_PASSWORD:
+    name: gocommerce-pg-products-user
+    key: password
+
+# This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

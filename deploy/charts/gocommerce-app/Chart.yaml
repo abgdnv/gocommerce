@@ -1,0 +1,10 @@
+apiVersion: v2
+name: gocommerce-app
+description: Umbrella chart for GoCommerce application microservices
+type: application
+version: 0.0.1
+
+dependencies:
+  - name: product
+    version: "0.0.1"
+    repository: "file://../product"
