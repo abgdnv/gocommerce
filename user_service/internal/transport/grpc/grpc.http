@@ -1,0 +1,11 @@
+###
+# gRPC request to register a user
+GRPC localhost:50052/user.v1.UserService/Register
+
+{
+  "userName": "jdoe5",
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "jdoe5@example.com",
+  "password": "password"
+}
