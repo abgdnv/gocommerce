@@ -1,0 +1,33 @@
+product:
+  replicaCount: 1
+  image:
+    repository: product-service
+    tag: "0.1.0"
+  env:
+    PRODUCT_DB_HOST: gc-infra-pg-rw
+    PRODUCT_DB_NAME: products_db
+  envFromSecret:
+    PRODUCT_DB_USER:
+      name: gc-infra-pg-products-user
+      key: username
+    PRODUCT_DB_PASSWORD:
+      name: gc-infra-pg-products-user
+      key: password
+
+order:
+  replicaCount: 1
+  image:
+    repository: order-service
+    tag: "0.1.0"
+  env:
+    ORDER_DB_HOST: gc-infra-pg-rw
+    ORDER_DB_NAME: orders_db
+    ORDER_SERVICES_PRODUCT_GRPC_ADDR: "gc-app-product:50051"
+    ORDER_NATS_URL: "nats://gc-infra-nats:4222"
+  envFromSecret:
+    ORDER_DB_USER:
+      name: gc-infra-pg-orders-user
+      key: username
+    ORDER_DB_PASSWORD:
+      name: gc-infra-pg-orders-user
+      key: password

@@ -1,5 +1,5 @@
 platform-database:
-  clusterName: gocommerce-pg
+  clusterName: gc-infra-pg
   instances: 1
   storage: 1Gi
   users:
@@ -13,17 +13,17 @@ platform-database:
 db-migrations:
   migrate_img: migrate/migrate:4
   psql_img: alpine/psql:17.5
-  secrets:
-    products: gocommerce-pg-products-user
-    orders: gocommerce-pg-orders-user
-  db:
-    products:
-      name: products_db
-      user: products_user
-    orders:
-      name: orders_db
+  migrations:
+    - name: order
+      dbHost: gc-infra-pg-rw
+      db: orders_db
       user: orders_user
-  dbHost: gocommerce-pg-rw
+      secret: gc-infra-pg-orders-user
+    - name: product
+      dbHost: gc-infra-pg-rw
+      db: products_db
+      user: products_user
+      secret: gc-infra-pg-products-user
 
 keycloak:
   keycloakx:
@@ -32,10 +32,10 @@ keycloak:
     replicas: 1
     database:
       vendor: postgres
-      hostname: gocommerce-pg-rw
+      hostname: gc-infra-pg-rw
       port: "5432"
       username: keycloak_user
-      existingSecret: gocommerce-pg-keycloak-user
+      existingSecret: gc-infra-pg-keycloak-user
       database: keycloak_db
     command:
       - "/opt/keycloak/bin/kc.sh"

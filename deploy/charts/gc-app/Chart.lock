@@ -1,0 +1,9 @@
+dependencies:
+- name: product
+  repository: file://../product
+  version: 0.0.1
+- name: order
+  repository: file://../order
+  version: 0.0.1
+digest: sha256:386b79ab2f20e91cbb24d39057944895a8c7ab481328262ef99857ac0294b68c
+generated: "2025-08-09T17:15:37.781777044+02:00"

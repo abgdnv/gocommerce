@@ -1,4 +1,4 @@
-clusterName: gocommerce-pg
+clusterName: gc-infra-pg
 instances: 1
 storage: 1Gi
 users:

@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: product-service
+  repository: order-service
   pullPolicy: IfNotPresent
   tag: "0.1.0"
 
@@ -9,7 +9,7 @@ serviceAccount:
   create: true
   automount: true
   annotations: {}
-  name: product-sa
+  name: order-sa
 
 podAnnotations: {}
 
@@ -41,30 +41,32 @@ readinessProbe:
   periodSeconds: 30
 
 env:
-  PRODUCT_DB_HOST: gc-infra-pg-rw
-  PRODUCT_DB_PORT: "5432"
-  PRODUCT_DB_NAME: products_db
-  PRODUCT_DB_SSLMODE: disable
-  PRODUCT_DB_TIMEOUT: "10s"
-  PRODUCT_SERVER_PORT: "8080"
-  PRODUCT_SERVER_MAXHEADERBYTES: "1048576"
-  PRODUCT_SERVER_TIMEOUT_READ: "10s"
-  PRODUCT_SERVER_TIMEOUT_WRITE: "10s"
-  PRODUCT_SERVER_TIMEOUT_IDLE: "60s"
-  PRODUCT_SERVER_TIMEOUT_READHEADER: "5s"
-  PRODUCT_GRPC_PORT: "50051"
-  PRODUCT_GRPC_REFLECTION: "true"
-  PRODUCT_LOG_LEVEL: "info"
-  PRODUCT_PPROF_ENABLED: "true"
-  PRODUCT_PPROF_ADDR: ":6060"
-  PRODUCT_SHUTDOWN_TIMEOUT: "5s"
+  ORDER_DB_HOST: gc-infra-pg-rw
+  ORDER_DB_PORT: "5432"
+  ORDER_DB_NAME: orders_db
+  ORDER_DB_SSLMODE: disable
+  ORDER_DB_TIMEOUT: "10s"
+  ORDER_SERVER_PORT: "8080"
+  ORDER_SERVER_MAXHEADERBYTES: "1048576"
+  ORDER_SERVER_TIMEOUT_READ: "10s"
+  ORDER_SERVER_TIMEOUT_WRITE: "10s"
+  ORDER_SERVER_TIMEOUT_IDLE: "60s"
+  ORDER_SERVER_TIMEOUT_READHEADER: "5s"
+  ORDER_LOG_LEVEL: "info"
+  ORDER_PPROF_ENABLED: "true"
+  ORDER_PPROF_ADDR: ":6060"
+  ORDER_SERVICES_PRODUCT_GRPC_ADDR: "gc-app-product:50051"
+  ORDER_SERVICES_PRODUCT_GRPC_TIMEOUT: "2s"
+  ORDER_NATS_URL: "nats://gc-infra-nats:4222"
+  ORDER_NATS_TIMEOUT: "2s"
+  ORDER_SHUTDOWN_TIMEOUT: "5s"
 
 envFromSecret:
-  PRODUCT_DB_USER:
-    name: gc-infra-pg-products-user
+  ORDER_DB_USER:
+    name: gc-infra-pg-orders-user
     key: username
-  PRODUCT_DB_PASSWORD:
-    name: gc-infra-pg-products-user
+  ORDER_DB_PASSWORD:
+    name: gc-infra-pg-orders-user
     key: password
 
 # This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/

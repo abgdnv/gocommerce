@@ -71,17 +71,17 @@ tidy: ## Run tests in all modules with verbose output
 .PHONY: helm-deps
 helm-deps: ## Update Helm dependencies for charts
 	@echo "--> Updating Helm dependencies..."
-	@helm dependency update ./deploy/charts/gocommerce-infra
-	@helm dependency update ./deploy/charts/gocommerce-app
+	@helm dependency update ./deploy/charts/gc-infra
+	@helm dependency update ./deploy/charts/gc-app
 	@echo "✅  Helm dependencies updated."
 
 .PHONY: template-infra
 template-infra: helm-deps ## Template Helm chart for infrastructure
-	@helm template gocommerce-infra ./deploy/charts/gocommerce-infra
+	@helm template gocommerce-infra ./deploy/charts/gc-infra
 
 .PHONY: template-app
 template-app: helm-deps ## Template Helm chart for application
-	@helm template gocommerce-app ./deploy/charts/gocommerce-app
+	@helm template gocommerce-app ./deploy/charts/gc-app
 
 	@echo "Done."
 .DEFAULT_GOAL := help

@@ -4,10 +4,10 @@ keycloakx:
   replicas: 1
   database:
     vendor: postgres
-    hostname: gocommerce-pg-rw
+    hostname: gc-infra-pg-rw
     port: "5432"
     username: keycloak_user
-    existingSecret: gocommerce-pg-keycloak-user
+    existingSecret: gc-infra-pg-keycloak-user
     database: keycloak_db
   command:
     - "/opt/keycloak/bin/kc.sh"

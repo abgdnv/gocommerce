@@ -124,7 +124,7 @@ services:
     container_name: product-migrator
     command: [ "-path", "/migrations", "-database", "${PRODUCT_DB_URI}", "up" ]
     volumes:
-      - ./deploy/charts/db-migrations/migrations/product_service:/migrations
+      - ./deploy/charts/db-migrations/migrations/product:/migrations
     networks:
       - ecommerce-network
     depends_on:
@@ -178,7 +178,7 @@ services:
     container_name: order-migrator
     command: [ "-path", "/migrations", "-database", "${ORDER_DB_URI}", "up" ]
     volumes:
-      - ./deploy/charts/db-migrations/migrations/order_service:/migrations
+      - ./deploy/charts/db-migrations/migrations/order:/migrations
     networks:
       - ecommerce-network
     depends_on:
