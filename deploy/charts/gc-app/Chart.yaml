@@ -16,3 +16,7 @@ dependencies:
   - name: notification
     version: "0.0.1"
     repository: "file://../notification"
+
+  - name: user
+    version: "0.0.1"
+    repository: "file://../user"

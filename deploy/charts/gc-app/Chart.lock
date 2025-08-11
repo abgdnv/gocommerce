@@ -8,5 +8,8 @@ dependencies:
 - name: notification
   repository: file://../notification
   version: 0.0.1
-digest: sha256:5e63c0e187ba3d4f5e3447c12a58609740d7afa529b387a613263a9e5b7f7f66
-generated: "2025-08-11T12:38:37.167279968+02:00"
+- name: user
+  repository: file://../user
+  version: 0.0.1
+digest: sha256:10e1876e97d5fa13b430275b0911dd7c5c07cd15cf4afbf7b2a37ec399735d45
+generated: "2025-08-11T14:04:24.739493747+02:00"

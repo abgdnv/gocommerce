@@ -39,3 +39,19 @@ notification:
     tag: "0.1.0"
   env:
     NOTIFICATION_NATS_URL: "nats://gc-infra-nats:4222"
+
+user:
+  replicaCount: 1
+  image:
+    repository: user-service
+    tag: "0.1.0"
+  init:
+    img: busybox:1.37
+    host: gc-infra-keycloakx-http
+    port: 80
+  env:
+    USER_IDP_URL: http://gc-infra-keycloakx-http/auth
+  envFromSecret:
+    USER_IDP_SECRET:
+      name: gc-infra-user-idp-secret
+      key: secret
