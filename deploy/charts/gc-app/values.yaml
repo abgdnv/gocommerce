@@ -31,3 +31,11 @@ order:
     ORDER_DB_PASSWORD:
       name: gc-infra-pg-orders-user
       key: password
+
+notification:
+  replicaCount: 1
+  image:
+    repository: notification-service
+    tag: "0.1.0"
+  env:
+    NOTIFICATION_NATS_URL: "nats://gc-infra-nats:4222"

@@ -12,3 +12,7 @@ dependencies:
   - name: order
     version: "0.0.1"
     repository: "file://../order"
+
+  - name: notification
+    version: "0.0.1"
+    repository: "file://../notification"

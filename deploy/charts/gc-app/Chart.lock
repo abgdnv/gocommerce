@@ -5,5 +5,8 @@ dependencies:
 - name: order
   repository: file://../order
   version: 0.0.1
-digest: sha256:386b79ab2f20e91cbb24d39057944895a8c7ab481328262ef99857ac0294b68c
-generated: "2025-08-09T17:15:37.781777044+02:00"
+- name: notification
+  repository: file://../notification
+  version: 0.0.1
+digest: sha256:5e63c0e187ba3d4f5e3447c12a58609740d7afa529b387a613263a9e5b7f7f66
+generated: "2025-08-11T12:38:37.167279968+02:00"
