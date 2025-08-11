@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/abgdnv/gocommerce/notification_service/internal/config"
 	"github.com/abgdnv/gocommerce/notification_service/internal/subscriber"
@@ -52,6 +53,17 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("failed to get JetStream context: %w", err)
 	}
 
+	// create readiness probe file and remove it on shutdown
+	if err := os.WriteFile(cfg.ProbesConfig.ReadinessFileName, []byte("ok"), 0644); err != nil {
+		slog.Error("failed to create readiness probe file", "error", err)
+	}
+	defer func() {
+		err := os.Remove(cfg.ProbesConfig.ReadinessFileName)
+		if err != nil {
+			logger.Error("Can't delete file", "file", cfg.ProbesConfig.ReadinessFileName)
+		}
+	}()
+
 	g, gCtx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
@@ -86,6 +98,26 @@ func run(ctx context.Context) error {
 			return pprofServer.Shutdown(shutdownCtx)
 		})
 	}
+
+	// Create liveness probe file and update it periodically
+	g.Go(func() error {
+		if err := os.WriteFile(cfg.ProbesConfig.LivenessFileName, []byte("ok"), 0644); err != nil {
+			return fmt.Errorf("failed to create liveness probe file: %w", err)
+		}
+		ticker := time.NewTicker(cfg.ProbesConfig.LivenessInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-gCtx.Done():
+				_ = os.Remove(cfg.ProbesConfig.LivenessFileName)
+				return nil
+			case <-ticker.C:
+				if err := os.Chtimes(cfg.ProbesConfig.LivenessFileName, time.Now(), time.Now()); err != nil {
+					slog.Error("Failed to update liveness probe file", "error", err)
+				}
+			}
+		}
+	})
 
 	if err := g.Wait(); err != nil {
 		if !errors.Is(err, context.Canceled) {

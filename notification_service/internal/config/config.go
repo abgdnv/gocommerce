@@ -10,11 +10,12 @@ import (
 var _ configloader.Validator = (*Config)(nil)
 
 type Config struct {
-	Log        config.LogConfig        `koanf:"log"`
-	PProf      config.PProfConfig      `koanf:"pprof"`
-	Nats       config.NATSConfig       `koanf:"nats"`
-	Subscriber config.SubscriberConfig `koanf:"subscriber"`
-	Shutdown   config.ShutdownConfig   `koanf:"shutdown"`
+	Log          config.LogConfig        `koanf:"log"`
+	PProf        config.PProfConfig      `koanf:"pprof"`
+	Nats         config.NATSConfig       `koanf:"nats"`
+	Subscriber   config.SubscriberConfig `koanf:"subscriber"`
+	ProbesConfig config.ProbesConfig     `koanf:"probes"`
+	Shutdown     config.ShutdownConfig   `koanf:"shutdown"`
 }
 
 func (c *Config) String() string {
@@ -23,6 +24,7 @@ func (c *Config) String() string {
 	b.WriteString(c.Subscriber.String())
 	b.WriteString(c.Log.String())
 	b.WriteString(c.PProf.String())
+	b.WriteString(c.ProbesConfig.String())
 	b.WriteString(c.Shutdown.String())
 	return b.String()
 }
@@ -39,6 +41,9 @@ func (c *Config) Validate() error {
 		return err
 	}
 	if err := c.Subscriber.Validate(); err != nil {
+		return err
+	}
+	if err := c.ProbesConfig.Validate(); err != nil {
 		return err
 	}
 	if err := c.Shutdown.Validate(); err != nil {

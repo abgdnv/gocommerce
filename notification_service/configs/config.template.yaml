@@ -14,5 +14,9 @@ subscriber:
   timeout: 5s
   interval: 1s
   workers: 3
+probes:
+  livenessfilename: /tmp/live
+  readinessfilename: /tmp/ready
+  livenessinterval: 20s
 shutdown:
   timeout: 5s
