@@ -20,6 +20,8 @@ import (
 	"github.com/abgdnv/gocommerce/user_service/internal/config"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 const serviceName = "user"
@@ -47,7 +49,7 @@ func run(ctx context.Context) error {
 	logger := bootstrap.NewLogger(cfg.Log.Level)
 	slog.SetDefault(logger)
 
-	pprofServer, grpcServer, err := setupServers(ctx, logger, cfg)
+	pprofServer, grpcServer, grpcHealth, err := setupServers(ctx, logger, cfg)
 	if err != nil {
 		return err
 	}
@@ -68,9 +70,11 @@ func run(ctx context.Context) error {
 	g.Go(func() error {
 		<-gCtx.Done()
 		logger.Info("Shutting down gRPC server...")
+		grpcHealth.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 		stopped := make(chan struct{})
 		go func() {
 			grpcServer.GracefulStop()
+			grpcHealth.Shutdown()
 			close(stopped)
 		}()
 		select {
@@ -109,17 +113,22 @@ func run(ctx context.Context) error {
 }
 
 // setupServers initializes the HTTP, pprof, and gRPC servers with the provided database pool, logger, and configuration.
-func setupServers(ctx context.Context, logger *slog.Logger, cfg *config.Config) (*http.Server, *grpc.Server, error) {
+func setupServers(ctx context.Context, logger *slog.Logger, cfg *config.Config) (*http.Server, *grpc.Server, *health.Server, error) {
 	client := gocloak.NewClient(cfg.IdP.URL)
 	//fail-fast
 	_, err := client.LoginClient(ctx, cfg.IdP.ClientID, cfg.IdP.Secret, cfg.IdP.Realm)
 	if err != nil {
-		return nil, nil, fmt.Errorf("login failed: %w", err)
+		return nil, nil, nil, fmt.Errorf("login failed: %w", err)
 	}
 	deps := app.SetupDependencies(logger, client, cfg.IdP.ClientID, cfg.IdP.Secret, cfg.IdP.Realm)
 	grpcServer := app.SetupGrpcServer(deps, cfg.GRPC.ReflectionEnabled)
 	pprofServer := &http.Server{
 		Addr: cfg.PProf.Addr,
 	}
-	return pprofServer, grpcServer, nil
+
+	healthServer := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+
+	return pprofServer, grpcServer, healthServer, nil
 }

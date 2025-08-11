@@ -44,6 +44,8 @@ func (c *IdP) Validate() error {
 func (c *Config) String() string {
 	var b strings.Builder
 	b.WriteString("\n--- Identity Provider ---\n")
+	b.WriteString(fmt.Sprintf("  idp.url: %s\n", c.IdP.URL))
+	b.WriteString(fmt.Sprintf("  idp.realm: %s\n", c.IdP.Realm))
 	b.WriteString(fmt.Sprintf("  idp.clientid: %s\n", c.IdP.ClientID))
 	b.WriteString(c.GRPC.String())
 	b.WriteString(c.Log.String())

@@ -9,3 +9,9 @@ GRPC localhost:50052/user.v1.UserService/Register
   "email": "jdoe5@example.com",
   "password": "password"
 }
+
+###
+
+GRPC localhost:50051/grpc.health.v1.Health/Check
+
+###
