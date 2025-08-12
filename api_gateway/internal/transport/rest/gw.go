@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -8,6 +9,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"time"
 
 	sCfg "github.com/abgdnv/gocommerce/api_gateway/internal/config"
 	"github.com/abgdnv/gocommerce/api_gateway/internal/middleware"
@@ -17,6 +19,7 @@ import (
 	"github.com/abgdnv/gocommerce/pkg/server"
 	"github.com/abgdnv/gocommerce/pkg/web"
 	"github.com/go-chi/chi/v5"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -25,14 +28,16 @@ type GW struct {
 	httpCfg     config.HTTPConfig
 	cfg         sCfg.Services
 	userService *service.UserService
+	JwksURL     string
 	logger      *slog.Logger
 }
 
-func NewGW(httpCfg config.HTTPConfig, userService *service.UserService, cfg sCfg.Services, logger *slog.Logger) *GW {
+func NewGW(httpCfg config.HTTPConfig, userService *service.UserService, cfg sCfg.Services, JwksURL string, logger *slog.Logger) *GW {
 	return &GW{
 		httpCfg:     httpCfg,
 		cfg:         cfg,
 		userService: userService,
+		JwksURL:     JwksURL,
 		logger:      logger.With("component", "gw"),
 	}
 }
@@ -60,6 +65,9 @@ func (gw *GW) SetupHTTPServer(verifier *auth.JWTVerifier) (*http.Server, error) 
 	mux.Group(func(r chi.Router) {
 		r.Post(gw.cfg.User.From, gw.userRegisterHandler())
 	})
+
+	mux.Get("/readyz", gw.Ready)
+	mux.Get("/livez", gw.Live)
 
 	orderProxy, err := createReverseProxyWithRewrite(gw.cfg.Order.Url, gw.cfg.Order.From, gw.cfg.Order.To)
 	if err != nil {
@@ -144,4 +152,51 @@ func (gw *GW) loggerWithReqID(r *http.Request) *slog.Logger {
 		reqID = "unknown"
 	}
 	return gw.logger.With("request_id", reqID)
+}
+
+// Live checks if the service is live
+func (gw *GW) Live(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
+
+// Ready checks if the service is ready (i.e., all dependencies are healthy)
+func (gw *GW) Ready(w http.ResponseWriter, r *http.Request) {
+	eg, ctx := errgroup.WithContext(r.Context())
+	eg.Go(func() error {
+		return gw.CheckHealth(ctx, gw.cfg.Product.Url+"/healthz")
+	})
+	eg.Go(func() error {
+		return gw.CheckHealth(ctx, gw.cfg.Order.Url+"/healthz")
+	})
+	eg.Go(func() error {
+		return gw.userService.Check(ctx)
+	})
+	eg.Go(func() error {
+		return gw.CheckHealth(ctx, gw.JwksURL)
+	})
+	if err := eg.Wait(); err != nil {
+		slog.Error("Readiness probe failed: upstream service is not ready", "error", err)
+		http.Error(w, "Service Unavailable: Upstream service is not ready", http.StatusServiceUnavailable)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+// CheckHealth checks the health status of a service via HTTP.
+func (gw *GW) CheckHealth(ctx context.Context, url string) error {
+	var healthCheckClient = &http.Client{
+		Timeout: 2 * time.Second,
+	}
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	resp, err := healthCheckClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("get request error, url=%v: %w", url, err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("response code: %d", resp.StatusCode)
+	}
+	return nil
 }

@@ -23,6 +23,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 const serviceName = "gw"
@@ -61,7 +62,8 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("failed to create gRPC client connection: %w", err)
 	}
 	userClient := pb.NewUserServiceClient(grpcClient)
-	userService := service.NewUserService(userClient)
+	healthClient := healthpb.NewHealthClient(grpcClient)
+	userService := service.NewUserService(userClient, healthClient)
 
 	g, gCtx := errgroup.WithContext(ctx)
 
@@ -73,7 +75,7 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("failed to create JWT verifier: %w", err)
 	}
 
-	gw := rest.NewGW(cfg.HTTPServer, userService, cfg.Services, logger)
+	gw := rest.NewGW(cfg.HTTPServer, userService, cfg.Services, cfg.IdP.JwksURL, logger)
 	httpServer, err := gw.SetupHTTPServer(verifier)
 	if err != nil {
 		return err

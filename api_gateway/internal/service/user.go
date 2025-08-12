@@ -5,10 +5,12 @@ import (
 	"fmt"
 
 	pb "github.com/abgdnv/gocommerce/pkg/api/gen/go/user/v1"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 type UserService struct {
-	userClient pb.UserServiceClient
+	userClient   pb.UserServiceClient
+	healthClient healthpb.HealthClient
 }
 
 // UserDto represents the data transfer object for user registration
@@ -21,9 +23,10 @@ type UserDto struct {
 }
 
 // NewUserService creates a service for interact with User service via gRPC
-func NewUserService(userClient pb.UserServiceClient) *UserService {
+func NewUserService(userClient pb.UserServiceClient, healthClient healthpb.HealthClient) *UserService {
 	return &UserService{
-		userClient: userClient,
+		userClient:   userClient,
+		healthClient: healthClient,
 	}
 }
 
@@ -42,4 +45,16 @@ func (u *UserService) Register(ctx context.Context, user UserDto) (*string, erro
 		return nil, fmt.Errorf("user registration error: %w", err)
 	}
 	return &userID.Id, nil
+}
+
+// Check checks the health status of the User service via gRPC.
+func (u *UserService) Check(ctx context.Context) error {
+	resp, err := u.healthClient.Check(ctx, &healthpb.HealthCheckRequest{})
+	if err != nil {
+		return err
+	}
+	if resp.Status != healthpb.HealthCheckResponse_SERVING {
+		return fmt.Errorf("status: %v", resp.Status.String())
+	}
+	return nil
 }
