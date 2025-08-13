@@ -15,6 +15,7 @@ keycloakx:
     - "start"
     - "--import-realm"
     - "--http-port=8080"
+    - "--proxy=edge"
     - "--hostname-strict=false"
     - "--spi-events-listener-jboss-logging-success-level=info"
     - "--spi-events-listener-jboss-logging-error-level=warn"
@@ -22,6 +23,16 @@ keycloakx:
     enabled: true
   cache:
     stack: "custom"
+  ingress:
+    enabled: true
+    ingressClassName: "nginx"
+    servicePort: http
+    rules:
+      - host: "keycloak.127.0.0.1.nip.io"
+        paths:
+          - path: "/"
+            pathType: Prefix
+    tls: []
   extraEnv: |
     - name: KC_BOOTSTRAP_ADMIN_USERNAME
       value: "admin"

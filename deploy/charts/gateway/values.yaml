@@ -34,20 +34,15 @@ service:
   pprofPort: 6060
 
 ingress:
-  enabled: false
-  className: ""
+  enabled: true
+  className: "nginx"
   annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
   hosts:
-    - host: chart-example.local
+    - host: "gc.127.0.0.1.nip.io"
       paths:
         - path: /
-          pathType: ImplementationSpecific
+          pathType: Prefix
   tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
@@ -102,7 +97,7 @@ env:
 
   # gRPC Configuration
   GW_SERVICES_USER_GRPC_ADDR: gc-app-user:50051
-  GW_SERVICES_USER_GRPC_TIMEOUT: 2s
+  GW_SERVICES_USER_GRPC_TIMEOUT: 5s
   GW_SERVICES_USER_FROM: /api/auth/register
 
   # Identity Provider Configuration

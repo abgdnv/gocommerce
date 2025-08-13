@@ -18,6 +18,18 @@ install_operator() {
     fi
 }
 
+install_ingress_controller() {
+    echo "📦 Installing Nginx Ingress controller for Kind..."
+    kubectl apply -f https://kind.sigs.k8s.io/examples/ingress/deploy-ingress-nginx.yaml
+    echo "⌛ Waiting for Ingress controller to be ready..."
+    kubectl wait --namespace ingress-nginx \
+      --for=condition=ready pod \
+      --selector=app.kubernetes.io/component=controller \
+      --timeout=180s
+    echo "✅ Ingress controller is ready."
+}
+
+
 COMMAND=${1-}
 if [ -z "$COMMAND" ]; then
     echo "Usage: $0 <up|down|load>"
@@ -30,6 +42,7 @@ case "$COMMAND" in
         kind create cluster --name "$CLUSTER_NAME" --config "$KIND_CONFIG"
         echo "✅ Cluster created successfully."
 
+        install_ingress_controller
         install_operator
 
         ;;
