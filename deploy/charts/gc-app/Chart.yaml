@@ -20,3 +20,7 @@ dependencies:
   - name: user
     version: "0.0.1"
     repository: "file://../user"
+
+  - name: gateway
+    version: "0.0.1"
+    repository: "file://../gateway"

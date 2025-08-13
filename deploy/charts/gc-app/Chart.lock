@@ -11,5 +11,8 @@ dependencies:
 - name: user
   repository: file://../user
   version: 0.0.1
-digest: sha256:10e1876e97d5fa13b430275b0911dd7c5c07cd15cf4afbf7b2a37ec399735d45
-generated: "2025-08-11T14:04:24.739493747+02:00"
+- name: gateway
+  repository: file://../gateway
+  version: 0.0.1
+digest: sha256:7a8792101e92ae93e1e8b664ebf4cfe25fd2c662c420d32ec7b1d84ab24970dd
+generated: "2025-08-12T23:01:26.357846961+02:00"

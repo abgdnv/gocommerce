@@ -1,12 +1,12 @@
 
-@host = localhost:8080
-@keycloak = localhost:8181
+@host = localhost:8181
+@keycloak = keycloak.127.0.0.1.nip.io:8080
 
 # Get Token
 ###
 
 # curl -L 'http://localhost:8181/realms/gocommerce/protocol/openid-connect/token' -H 'Content-Type: application/x-www-form-urlencoded' --data-urlencode 'client_id=gocommerce-api' --data-urlencode 'client_secret=secret' --data-urlencode 'username=user' --data-urlencode 'password=password' --data-urlencode 'grant_type=password'
-POST http://{{keycloak}}/realms/gocommerce/protocol/openid-connect/token
+POST http://{{keycloak}}/auth/realms/gocommerce/protocol/openid-connect/token
 Content-Type: application/x-www-form-urlencoded
 
 client_id = gocommerce-api &

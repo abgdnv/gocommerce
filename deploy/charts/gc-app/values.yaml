@@ -55,3 +55,20 @@ user:
     USER_IDP_SECRET:
       name: gc-infra-user-idp-secret
       key: secret
+
+gateway:
+  replicaCount: 1
+  image:
+    repository: api-gateway
+    tag: "0.1.0"
+  init:
+    img: busybox:1.37
+    host: gc-infra-keycloakx-http
+    port: 80
+  env:
+    GW_SERVICES_PRODUCT_URL: http://gc-app-product:8080
+    GW_SERVICES_ORDER_URL: http://gc-app-order:8080
+    GW_SERVICES_USER_GRPC_ADDR: gc-app-user:50051
+    GW_IDP_JWKSURL: http://gc-infra-keycloakx-http/auth/realms/gocommerce/protocol/openid-connect/certs
+    GW_IDP_ISSUER: http://keycloak.127.0.0.1.nip.io/auth/realms/gocommerce
+    GW_IDP_CLIENTID: gocommerce-api

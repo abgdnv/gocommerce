@@ -1,0 +1,144 @@
+replicaCount: 1
+
+image:
+  repository: api-gateway
+  pullPolicy: IfNotPresent
+  tag: "0.1.0"
+
+init:
+  img: busybox:1.37
+  host: gc-infra-keycloakx-http
+  port: 80
+
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: "gateway-sa"
+
+podAnnotations: {}
+
+podLabels:
+  component: api
+  team: backend
+
+podSecurityContext: {}
+
+securityContext: {}
+
+service:
+  type: ClusterIP
+  httpPort: 8080
+  pprofPort: 6060
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+livenessProbe:
+  httpGet:
+    path: /livez
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 30
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 30
+
+env:
+  # HTTP Configuration
+  GW_SERVER_PORT: "8080"
+  GW_SERVER_MAXHEADERBYTES: "1048576"
+  GW_SERVER_TIMEOUT_READ: "10s"
+  GW_SERVER_TIMEOUT_WRITE: "10s"
+  GW_SERVER_TIMEOUT_IDLE: "60s"
+  GW_SERVER_TIMEOUT_READHEADER: "5s"
+
+  # Log Configuration
+  GW_LOG_LEVEL: "info"
+
+  # PProf Configuration
+  GW_PPROF_ENABLED: "true"
+  GW_PPROF_ADDR: ":6060"
+
+  # Services Configuration
+  GW_SERVICES_PRODUCT_URL: http://gc-app-product:8080
+  GW_SERVICES_PRODUCT_FROM: /api/products
+  GW_SERVICES_PRODUCT_TO: /api/v1/products
+
+  GW_SERVICES_ORDER_URL: http://gc-app-order:8080
+  GW_SERVICES_ORDER_FROM: /api/orders
+  GW_SERVICES_ORDER_TO: /api/v1/orders
+
+  # gRPC Configuration
+  GW_SERVICES_USER_GRPC_ADDR: gc-app-user:50051
+  GW_SERVICES_USER_GRPC_TIMEOUT: 2s
+  GW_SERVICES_USER_FROM: /api/auth/register
+
+  # Identity Provider Configuration
+  GW_IDP_JWKSURL: http://gc-infra-keycloakx-http/auth/realms/gocommerce/protocol/openid-connect/certs
+  GW_IDP_ISSUER: http://keycloak.127.0.0.1.nip.io/auth/realms/gocommerce
+  GW_IDP_CLIENTID: gocommerce-api
+  GW_IDP_MININTERVAL: 15m
+
+  # Shutdown Configuration
+  GW_SHUTDOWN_TIMEOUT: 5s
+
+envFromSecret: {}
+
+# This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
