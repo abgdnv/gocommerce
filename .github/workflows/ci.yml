@@ -1,0 +1,18 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  find-modules:
+    uses: ./.github/workflows/find-modules.yml
+
+  verify_build_lint_test:
+    needs: find-modules
+    uses: ./.github/workflows/verify-build-lint-test.yml
+    with:
+      modules: ${{ needs.find-modules.outputs.modules }}

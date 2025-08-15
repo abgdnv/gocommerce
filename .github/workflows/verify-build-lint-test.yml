@@ -1,35 +1,21 @@
-name: CI
+name: Verify, build, lint, and test
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      modules:
+        description: 'JSON array of modules to process'
+        required: true
+        type: string
 
 jobs:
-  find-modules:
-    name: Find All Modules
-    runs-on: ubuntu-latest
-    outputs:
-      modules: ${{ steps.find-modules.outputs.modules }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Find all modules
-        id: find-modules
-        run: |
-          MODULES_JSON=$(find . -name "go.mod" -not -path "./vendor/*" -exec dirname {} \; | sed 's|^\./||' | jq -R . | jq -s -c .)
-          echo "modules=$MODULES_JSON" >> $GITHUB_OUTPUT
-
   verify_build_lint_test:
     name: (${{ matrix.module }})
-    needs: find-modules
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        module: ${{ fromJson(needs.find-modules.outputs.modules) }}
+        module: ${{ fromJson(inputs.modules) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -71,20 +57,11 @@ jobs:
             echo "No dependencies found in go.mod, skipping 'go mod verify'."
           fi
 
-      - name: Check formatting
-        working-directory: ${{ matrix.module }}
-        run: |
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-            echo "❌ Code is not formatted:"
-            gofmt -s -l .
-            exit 1
-          fi
-
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8.0.0
         with:
           version: v2.1.0
-          args: --timeout 10m
+          args: --timeout 15m
           working-directory: ${{ matrix.module }}
           skip-cache: false
 

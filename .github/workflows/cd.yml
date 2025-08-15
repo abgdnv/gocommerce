@@ -1,0 +1,34 @@
+name: CD
+
+on:
+#  push:
+#    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  find-go-modules:
+    name: Find Go Modules for Test
+    uses: ./.github/workflows/find-modules.yml
+
+  find-dockerfiles:
+    name: Find Dockerfiles for Build
+    uses: ./.github/workflows/find-dockerfiles.yml
+
+  tests:
+    name: Run Lint & Tests
+    needs: find-go-modules
+    uses: ./.github/workflows/verify-build-lint-test.yml
+    with:
+      modules: ${{ needs.find-go-modules.outputs.modules }}
+
+  build:
+    name: Build & Publish Images
+    needs: [tests, find-dockerfiles]
+    uses: ./.github/workflows/build-and-push-images.yml
+    secrets: inherit
+    with:
+      modules: ${{ needs.find-dockerfiles.outputs.modules }}

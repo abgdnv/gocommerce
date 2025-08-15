@@ -1,0 +1,22 @@
+name: Find Dockerfiles
+
+on:
+  workflow_call:
+    outputs:
+      modules:
+        description: "JSON array of found Go modules"
+        value: ${{ jobs.find-dockerfiles.outputs.modules }}
+jobs:
+  find-dockerfiles:
+    name: Find All Dockerfiles
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.find-dockerfiles.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find all Dockerfiles
+        id: find-dockerfiles
+        run: |
+          MODULES_JSON=$(find . -name "Dockerfile" -exec dirname {} \; | sed 's|^\./||' | jq -R . | jq -s -c .)
+          echo "modules=$MODULES_JSON" >> $GITHUB_OUTPUT

@@ -1,6 +1,6 @@
 # GoCommerce
 [![Go Report Card](https://goreportcard.com/badge/github.com/abgdnv/gocommerce)](https://goreportcard.com/report/github.com/abgdnv/gocommerce)
-![CI](https://github.com/abgdnv/gocommerce/actions/workflows/go.yml/badge.svg)
+![CI](https://github.com/abgdnv/gocommerce/actions/workflows/ci.yml/badge.svg)
 [![License](https://img.shields.io/badge/license-MIT-blue)](https://github.com/abgdnv/gocommerce/blob/main/LICENSE)
 
 A foundational e-commerce demo project built on a Go-based microservices architecture. This repository serves as a template for building production-ready services, demonstrating best practices in project structure, configuration, database interaction, and testing.

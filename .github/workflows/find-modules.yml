@@ -1,0 +1,23 @@
+name: Find Modules
+
+on:
+  workflow_call:
+    outputs:
+      modules:
+        description: "JSON array of found Go modules"
+        value: ${{ jobs.find-modules.outputs.modules }}
+
+jobs:
+  find-modules:
+    name: Find All Modules
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.find-modules.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find all modules
+        id: find-modules
+        run: |
+          MODULES_JSON=$(find . -name "go.mod" -not -path "./vendor/*" -exec dirname {} \; | sed 's|^\./||' | jq -R . | jq -s -c .)
+          echo "modules=$MODULES_JSON" >> $GITHUB_OUTPUT
