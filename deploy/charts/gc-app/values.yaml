@@ -6,6 +6,7 @@ product:
   env:
     PRODUCT_DB_HOST: gc-infra-pg-rw
     PRODUCT_DB_NAME: products_db
+    PRODUCT_TELEMETRY_TRACES_OTLPHTTP_ENDPOINT: jaeger-instance-collector.monitoring.svc.cluster.local:4318
   envFromSecret:
     PRODUCT_DB_USER:
       name: gc-infra-pg-products-user
@@ -24,6 +25,7 @@ order:
     ORDER_DB_NAME: orders_db
     ORDER_SERVICES_PRODUCT_GRPC_ADDR: "gc-app-product:50051"
     ORDER_NATS_URL: "nats://gc-infra-nats:4222"
+    ORDER_TELEMETRY_TRACES_OTLPHTTP_ENDPOINT: jaeger-instance-collector.monitoring.svc.cluster.local:4318
   envFromSecret:
     ORDER_DB_USER:
       name: gc-infra-pg-orders-user
@@ -39,6 +41,7 @@ notification:
     tag: "0.1.0"
   env:
     NOTIFICATION_NATS_URL: "nats://gc-infra-nats:4222"
+    NOTIFICATION_TELEMETRY_TRACES_OTLPHTTP_ENDPOINT: jaeger-instance-collector.monitoring.svc.cluster.local:4318
 
 user:
   replicaCount: 1
@@ -51,6 +54,7 @@ user:
     port: 80
   env:
     USER_IDP_URL: http://gc-infra-keycloakx-http/auth
+    USER_TELEMETRY_TRACES_OTLPHTTP_ENDPOINT: jaeger-instance-collector.monitoring.svc.cluster.local:4318
   envFromSecret:
     USER_IDP_SECRET:
       name: gc-infra-user-idp-secret
@@ -72,3 +76,4 @@ gateway:
     GW_IDP_JWKSURL: http://gc-infra-keycloakx-http/auth/realms/gocommerce/protocol/openid-connect/certs
     GW_IDP_ISSUER: http://keycloak.127.0.0.1.nip.io/auth/realms/gocommerce
     GW_IDP_CLIENTID: gocommerce-api
+    GW_TELEMETRY_TRACES_OTLPHTTP_ENDPOINT: jaeger-instance-collector.monitoring.svc.cluster.local:4318

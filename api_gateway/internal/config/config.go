@@ -11,12 +11,13 @@ import (
 var _ configloader.Validator = (*Config)(nil)
 
 type Config struct {
-	HTTPServer config.HTTPConfig     `koanf:"server"`
-	Log        config.LogConfig      `koanf:"log"`
-	PProf      config.PProfConfig    `koanf:"pprof"`
-	Shutdown   config.ShutdownConfig `koanf:"shutdown"`
-	Services   Services              `koanf:"services"`
-	IdP        config.IdP            `koanf:"idp"`
+	HTTPServer config.HTTPConfig      `koanf:"server"`
+	Log        config.LogConfig       `koanf:"log"`
+	PProf      config.PProfConfig     `koanf:"pprof"`
+	Telemetry  config.TelemetryConfig `koanf:"telemetry"`
+	Shutdown   config.ShutdownConfig  `koanf:"shutdown"`
+	Services   Services               `koanf:"services"`
+	IdP        config.IdP             `koanf:"idp"`
 }
 
 type Services struct {
@@ -55,6 +56,7 @@ func (c *Config) String() string {
 	b.WriteString(c.IdP.String())
 	b.WriteString(c.Log.String())
 	b.WriteString(c.PProf.String())
+	b.WriteString(c.Telemetry.String())
 	b.WriteString(c.Shutdown.String())
 	return b.String()
 }
@@ -68,6 +70,9 @@ func (c *Config) Validate() error {
 		return err
 	}
 	if err := c.PProf.Validate(); err != nil {
+		return err
+	}
+	if err := c.Telemetry.Validate(); err != nil {
 		return err
 	}
 	if err := c.Shutdown.Validate(); err != nil {

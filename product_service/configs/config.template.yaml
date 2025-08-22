@@ -22,5 +22,11 @@ pprof:
 grpc:
   port: 50051
   reflection: false
+telemetry:
+  traces:
+    otlphttp:
+      endpoint: "jaeger:4318"
+      insecure: true
+      timeout: "2s"
 shutdown:
   timeout: 5s

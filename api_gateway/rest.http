@@ -1,4 +1,8 @@
+# docker config
+# @host = localhost:8080
+# @keycloak = localhost:8181
 
+# kind config
 @host = gc.127.0.0.1.nip.io
 @keycloak = keycloak.127.0.0.1.nip.io
 

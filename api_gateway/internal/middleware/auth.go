@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/abgdnv/gocommerce/pkg/auth"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type contextKey string
@@ -44,6 +46,14 @@ func AuthMiddleware(verifier auth.Verifier) func(http.Handler) http.Handler {
 				http.Error(w, "no claim `sub`", http.StatusUnauthorized)
 				return
 			}
+
+			span := trace.SpanFromContext(r.Context())
+			if span.IsRecording() {
+				var attrs []attribute.KeyValue
+				attrs = append(attrs, attribute.String("enduser.id", subject))
+				span.SetAttributes(attrs...)
+			}
+
 			// Enrich the request context with the user ID.
 			ctx := context.WithValue(r.Context(), UserIDContextKey, subject)
 

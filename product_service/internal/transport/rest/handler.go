@@ -12,6 +12,7 @@ import (
 	producterrors "github.com/abgdnv/gocommerce/product_service/internal/errors"
 	"github.com/abgdnv/gocommerce/product_service/internal/service"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -259,9 +260,6 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, _ *http.Request) {
 
 // loggerWithReqID creates a logger with the request ID from the context.
 func (h *Handler) loggerWithReqID(r *http.Request) *slog.Logger {
-	reqID, found := web.GetRequestID(r.Context())
-	if !found {
-		reqID = "unknown"
-	}
+	reqID := middleware.GetReqID(r.Context())
 	return h.logger.With("request_id", reqID)
 }

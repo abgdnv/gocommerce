@@ -11,6 +11,8 @@ import (
 	"github.com/abgdnv/gocommerce/pkg/messaging/events"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -86,6 +88,12 @@ func handleMessage(msg AckableMsg, logger *slog.Logger) {
 		slog.String("order_id", event.OrderID.String()),
 		slog.String("user_id", event.UserID.String()),
 		slog.String("created_at", event.CreatedAt.Format(time.RFC3339)))
+
+	carrier := propagation.MapCarrier(event.Carrier)
+	ctx := otel.GetTextMapPropagator().Extract(context.Background(), carrier)
+	tracer := otel.Tracer("notification-service")
+	_, span := tracer.Start(ctx, "handle.order.created")
+	defer span.End()
 
 	notificationJob()
 

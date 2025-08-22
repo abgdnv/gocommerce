@@ -13,6 +13,8 @@ import (
 	pb "github.com/abgdnv/gocommerce/pkg/api/gen/go/product/v1"
 	"github.com/abgdnv/gocommerce/pkg/messaging"
 	"github.com/abgdnv/gocommerce/pkg/messaging/events"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 
 	"github.com/google/uuid"
 )
@@ -176,7 +178,10 @@ func (s *Service) Create(ctx context.Context, order OrderCreateDto) (*OrderDto, 
 		return nil, err
 	}
 
+	carrier := make(propagation.MapCarrier)
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
 	event := events.OrderCreatedEvent{
+		Carrier:    carrier,
 		OrderID:    createOrder.ID,
 		UserID:     createOrder.UserID,
 		TotalPrice: totalPrice,

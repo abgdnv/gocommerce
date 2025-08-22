@@ -19,17 +19,20 @@ import (
 	"github.com/abgdnv/gocommerce/pkg/server"
 	"github.com/abgdnv/gocommerce/pkg/web"
 	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type GW struct {
-	httpCfg     config.HTTPConfig
-	cfg         sCfg.Services
-	userService *service.UserService
-	JwksURL     string
-	logger      *slog.Logger
+	httpCfg           config.HTTPConfig
+	cfg               sCfg.Services
+	userService       *service.UserService
+	JwksURL           string
+	logger            *slog.Logger
+	healthCheckClient *http.Client
 }
 
 func NewGW(httpCfg config.HTTPConfig, userService *service.UserService, cfg sCfg.Services, JwksURL string, logger *slog.Logger) *GW {
@@ -39,6 +42,9 @@ func NewGW(httpCfg config.HTTPConfig, userService *service.UserService, cfg sCfg
 		userService: userService,
 		JwksURL:     JwksURL,
 		logger:      logger.With("component", "gw"),
+		healthCheckClient: &http.Client{
+			Timeout: 2 * time.Second,
+		},
 	}
 }
 
@@ -99,6 +105,10 @@ func createReverseProxyWithRewrite(targetURL, fromPath, toPath string) (http.Han
 		return nil, fmt.Errorf("invalid target URL '%s': %w", targetURL, err)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
+
+	otelTransport := otelhttp.NewTransport(http.DefaultTransport)
+	proxy.Transport = otelTransport
+
 	// Director will be called before the request is sent to the target.
 	proxy.Director = func(req *http.Request) {
 		userID := middleware.ContextUserID(req.Context())
@@ -147,10 +157,7 @@ func (gw *GW) userRegisterHandler() http.HandlerFunc {
 
 // loggerWithReqID creates a logger with the request ID from the context.
 func (gw *GW) loggerWithReqID(r *http.Request) *slog.Logger {
-	reqID, found := web.GetRequestID(r.Context())
-	if !found {
-		reqID = "unknown"
-	}
+	reqID := chimw.GetReqID(r.Context())
 	return gw.logger.With("request_id", reqID)
 }
 
@@ -184,11 +191,8 @@ func (gw *GW) Ready(w http.ResponseWriter, r *http.Request) {
 
 // CheckHealth checks the health status of a service via HTTP.
 func (gw *GW) CheckHealth(ctx context.Context, url string) error {
-	var healthCheckClient = &http.Client{
-		Timeout: 2 * time.Second,
-	}
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	resp, err := healthCheckClient.Do(req)
+	resp, err := gw.healthCheckClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("get request error, url=%v: %w", url, err)
 	}

@@ -30,5 +30,11 @@ idp:
   issuer: http://localhost:8181/realms/gocommerce
   clientid: gocommerce-api
   mininterval: 15m
+telemetry:
+  traces:
+    otlphttp:
+      endpoint: "jaeger:4318"
+      insecure: true
+      timeout: "2s"
 shutdown:
   timeout: 5s

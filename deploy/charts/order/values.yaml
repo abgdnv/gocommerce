@@ -41,24 +41,42 @@ readinessProbe:
   periodSeconds: 30
 
 env:
+  # Database Configuration
   ORDER_DB_HOST: gc-infra-pg-rw
   ORDER_DB_PORT: "5432"
   ORDER_DB_NAME: orders_db
   ORDER_DB_SSLMODE: disable
   ORDER_DB_TIMEOUT: "10s"
+
+  # HTTP Configuration
   ORDER_SERVER_PORT: "8080"
   ORDER_SERVER_MAXHEADERBYTES: "1048576"
   ORDER_SERVER_TIMEOUT_READ: "10s"
   ORDER_SERVER_TIMEOUT_WRITE: "10s"
   ORDER_SERVER_TIMEOUT_IDLE: "60s"
   ORDER_SERVER_TIMEOUT_READHEADER: "5s"
+
+  # Log Configuration
   ORDER_LOG_LEVEL: "info"
+
+  # PProf Configuration
   ORDER_PPROF_ENABLED: "true"
   ORDER_PPROF_ADDR: ":6060"
+
+  # gRPC Configuration
   ORDER_SERVICES_PRODUCT_GRPC_ADDR: "gc-app-product:50051"
   ORDER_SERVICES_PRODUCT_GRPC_TIMEOUT: "2s"
+
+  # NATS Configuration
   ORDER_NATS_URL: "nats://gc-infra-nats:4222"
   ORDER_NATS_TIMEOUT: "2s"
+
+  # Telemetry
+  ORDER_TELEMETRY_TRACES_OTLPHTTP_ENDPOINT: jaeger-instance-collector.monitoring.svc.cluster.local:4318
+  ORDER_TELEMETRY_TRACES_OTLPHTTP_INSECURE: true
+  ORDER_TELEMETRY_TRACES_OTLPHTTP_TIMEOUT: 2s
+
+  # Shutdown Configuration
   ORDER_SHUTDOWN_TIMEOUT: "5s"
 
 envFromSecret:

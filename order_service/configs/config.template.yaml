@@ -27,5 +27,11 @@ services:
 nats:
   url: "nats://localhost:4222"
   timeout: 2s
+telemetry:
+  traces:
+    otlphttp:
+      endpoint: "jaeger:4318"
+      insecure: true
+      timeout: "2s"
 shutdown:
   timeout: 5s

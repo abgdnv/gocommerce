@@ -15,6 +15,7 @@ type Config struct {
 	Log        config.LogConfig        `koanf:"log"`
 	PProf      config.PProfConfig      `koanf:"pprof"`
 	GRPC       config.GrpcServerConfig `koanf:"grpc"`
+	Telemetry  config.TelemetryConfig  `koanf:"telemetry"`
 	Shutdown   config.ShutdownConfig   `koanf:"shutdown"`
 }
 
@@ -25,6 +26,7 @@ func (c *Config) String() string {
 	b.WriteString(c.GRPC.String())
 	b.WriteString(c.Log.String())
 	b.WriteString(c.PProf.String())
+	b.WriteString(c.Telemetry.String())
 	b.WriteString(c.Shutdown.String())
 	return b.String()
 }
@@ -41,6 +43,9 @@ func (c *Config) Validate() error {
 		return err
 	}
 	if err := c.PProf.Validate(); err != nil {
+		return err
+	}
+	if err := c.Telemetry.Validate(); err != nil {
 		return err
 	}
 	if err := c.Shutdown.Validate(); err != nil {

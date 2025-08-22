@@ -11,11 +11,12 @@ import (
 var _ configloader.Validator = (*Config)(nil)
 
 type Config struct {
-	Log      config.LogConfig        `koanf:"log"`
-	PProf    config.PProfConfig      `koanf:"pprof"`
-	GRPC     config.GrpcServerConfig `koanf:"grpc"`
-	IdP      IdP                     `koanf:"idp"`
-	Shutdown config.ShutdownConfig   `koanf:"shutdown"`
+	Log       config.LogConfig        `koanf:"log"`
+	PProf     config.PProfConfig      `koanf:"pprof"`
+	GRPC      config.GrpcServerConfig `koanf:"grpc"`
+	IdP       IdP                     `koanf:"idp"`
+	Telemetry config.TelemetryConfig  `koanf:"telemetry"`
+	Shutdown  config.ShutdownConfig   `koanf:"shutdown"`
 }
 
 type IdP struct {
@@ -50,6 +51,7 @@ func (c *Config) String() string {
 	b.WriteString(c.GRPC.String())
 	b.WriteString(c.Log.String())
 	b.WriteString(c.PProf.String())
+	b.WriteString(c.Telemetry.String())
 	b.WriteString(c.Shutdown.String())
 	return b.String()
 }
@@ -66,6 +68,9 @@ func (c *Config) Validate() error {
 		return err
 	}
 	if err := c.IdP.Validate(); err != nil {
+		return err
+	}
+	if err := c.Telemetry.Validate(); err != nil {
 		return err
 	}
 	if err := c.Shutdown.Validate(); err != nil {

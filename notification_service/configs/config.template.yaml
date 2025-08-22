@@ -18,5 +18,11 @@ probes:
   livenessfilename: /tmp/live
   readinessfilename: /tmp/ready
   livenessinterval: 20s
+telemetry:
+  traces:
+    otlphttp:
+      endpoint: "jaeger:4318"
+      insecure: true
+      timeout: "2s"
 shutdown:
   timeout: 5s

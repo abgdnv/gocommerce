@@ -17,6 +17,7 @@ import (
 	"github.com/abgdnv/gocommerce/pkg/bootstrap"
 	"github.com/abgdnv/gocommerce/pkg/config/configloader"
 	"github.com/abgdnv/gocommerce/pkg/nats"
+	"github.com/abgdnv/gocommerce/pkg/telemetry"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -43,6 +44,13 @@ func run(ctx context.Context) error {
 
 	logger := bootstrap.NewLogger(cfg.Log.Level)
 	slog.SetDefault(logger)
+
+	// create tracer provider
+	tracerProvider, err := telemetry.NewTracerProvider(ctx, serviceName, cfg.Telemetry)
+	if err != nil {
+		logger.Error("error creating tracer provider", slog.Any("error", err))
+		return err
+	}
 
 	natsConn, err := nats.NewClient(cfg.Nats.Url, cfg.Nats.Timeout)
 	if err != nil {
@@ -117,6 +125,17 @@ func run(ctx context.Context) error {
 				}
 			}
 		}
+	})
+	// gracefully shutdown tracer provider
+	g.Go(func() error {
+		<-gCtx.Done()
+		logger.Info("Shutting down tracer provider")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Shutdown.Timeout)
+		defer cancel()
+		if err := tracerProvider.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("failed to shutdown tracer provider: %v", err)
+		}
+		return nil
 	})
 
 	if err := g.Wait(); err != nil {

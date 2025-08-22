@@ -14,10 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	_ "net/http/pprof"
-
 	"github.com/abgdnv/gocommerce/pkg/bootstrap"
 	"github.com/abgdnv/gocommerce/pkg/config/configloader"
+	"github.com/abgdnv/gocommerce/pkg/telemetry"
 	"github.com/abgdnv/gocommerce/product_service/internal/app"
 	"github.com/abgdnv/gocommerce/product_service/internal/config"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -49,6 +48,13 @@ func run(ctx context.Context) error {
 
 	logger := bootstrap.NewLogger(cfg.Log.Level)
 	slog.SetDefault(logger)
+
+	// create tracer provider
+	tracerProvider, err := telemetry.NewTracerProvider(ctx, serviceName, cfg.Telemetry)
+	if err != nil {
+		logger.Error("error creating tracer provider", slog.Any("error", err))
+		return err
+	}
 
 	dbPool, err := bootstrap.NewDbPool(ctx, cfg.Database.URI(), cfg.Database.Timeout)
 	if err != nil {
@@ -126,6 +132,18 @@ func run(ctx context.Context) error {
 			return pprofServer.Shutdown(shutdownCtx)
 		})
 	}
+	// gracefully shutdown tracer provider
+	g.Go(func() error {
+		<-gCtx.Done()
+		logger.Info("Shutting down tracer provider")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Shutdown.Timeout)
+		defer cancel()
+		if err := tracerProvider.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("failed to shutdown tracer provider: %v", err)
+		}
+		return nil
+	})
+
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return fmt.Errorf("errgroup encountered an error: %w", err)
 	}

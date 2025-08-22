@@ -45,14 +45,28 @@ readinessProbe:
   initialDelaySeconds: 30
 
 env:
+  # Log Configuration
   USER_LOG_LEVEL: "debug"
+
+  # PProf Configuration
   USER_PPROF_ENABLED: true
   USER_PPROF_ADDR: ":6060"
+
+  # gRPC Configuration
   USER_GRPC_PORT: 50051
   USER_GRPC_REFLECTION: true
+
+  # IdP Configuration
   USER_IDP_URL: http://gc-infra-keycloakx-http/auth
   USER_IDP_REALM: gocommerce
   USER_IDP_CLIENTID: gocommerce-api
+
+  # Telemetry
+  PRODUCT_TELEMETRY_TRACES_OTLPHTTP_ENDPOINT: jaeger-instance-collector.monitoring.svc.cluster.local:4318
+  PRODUCT_TELEMETRY_TRACES_OTLPHTTP_INSECURE: true
+  PRODUCT_TELEMETRY_TRACES_OTLPHTTP_TIMEOUT: 2s
+
+  # Shutdown Configuration
   USER_SHUTDOWN_TIMEOUT: 5s
 
 envFromSecret:

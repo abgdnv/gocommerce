@@ -20,6 +20,8 @@ import (
 	"github.com/abgdnv/gocommerce/pkg/bootstrap"
 	"github.com/abgdnv/gocommerce/pkg/client/grpc/interceptors"
 	"github.com/abgdnv/gocommerce/pkg/config/configloader"
+	"github.com/abgdnv/gocommerce/pkg/telemetry"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -50,6 +52,13 @@ func run(ctx context.Context) error {
 	logger := bootstrap.NewLogger(cfg.Log.Level)
 	slog.SetDefault(logger)
 
+	// create tracer provider
+	tracerProvider, err := telemetry.NewTracerProvider(ctx, serviceName, cfg.Telemetry)
+	if err != nil {
+		logger.Error("error creating tracer provider", slog.Any("error", err))
+		return err
+	}
+
 	// Create a gRPC client connection to the User service
 	grpcClient, err := grpc.NewClient(
 		cfg.Services.User.Grpc.Addr,
@@ -57,6 +66,7 @@ func run(ctx context.Context) error {
 		grpc.WithUnaryInterceptor(
 			interceptors.UnaryClientTimeoutInterceptor(cfg.Services.User.Grpc.Timeout),
 		),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create gRPC client connection: %w", err)
@@ -139,6 +149,18 @@ func run(ctx context.Context) error {
 		case <-time.After(cfg.Shutdown.Timeout):
 			return fmt.Errorf("failed to close gRPC client connection")
 		}
+	})
+
+	// gracefully shutdown tracer provider
+	g.Go(func() error {
+		<-gCtx.Done()
+		logger.Info("Shutting down tracer provider")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Shutdown.Timeout)
+		defer cancel()
+		if err := tracerProvider.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("failed to shutdown tracer provider: %v", err)
+		}
+		return nil
 	})
 
 	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {

@@ -9,6 +9,8 @@ import (
 	"github.com/abgdnv/gocommerce/pkg/config"
 	"github.com/abgdnv/gocommerce/pkg/web"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // HTTPConfig has the configuration for the HTTP server.
@@ -35,11 +37,15 @@ func NewHTTPServer(cfg config.HTTPConfig, handler http.Handler) *http.Server {
 }
 
 // NewChiRouter creates a new Chi router with a set of
-// middleware for request ID injection, structured logging, and recovery.
+// middleware for request ID injection, structured logging, telemetry, and recovery.
 func NewChiRouter(logger *slog.Logger) *chi.Mux {
 	mux := chi.NewRouter()
-	mux.Use(web.RequestIDInjector)
-	mux.Use(web.StructuredLogger(logger))
 	mux.Use(web.Recoverer(logger))
+	mux.Use(middleware.RequestID)
+	mux.Use(func(next http.Handler) http.Handler {
+		return otelhttp.NewHandler(next, "http.server")
+	})
+	mux.Use(web.TelemetryEnricher)
+	mux.Use(web.StructuredLogger(logger))
 	return mux
 }

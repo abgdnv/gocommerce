@@ -1,6 +1,7 @@
 package server
 
 import (
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -10,7 +11,7 @@ type RegistrationFunc func(*grpc.Server)
 
 // NewGRPCServer creates a new gRPC server instance with optional reflection and service registration.
 func NewGRPCServer(enableReflection bool, registerFunc ...RegistrationFunc) *grpc.Server {
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
 
 	if enableReflection {
 		reflection.Register(grpcServer)

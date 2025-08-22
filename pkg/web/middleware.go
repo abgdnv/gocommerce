@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const XUserId = "X-User-Id"
@@ -25,18 +27,6 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), UserIDKey, userID)
 
 		// Pass the new context to the next handler
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
-// RequestIDInjector creates a middleware that injects request id
-func RequestIDInjector(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		reqID := middleware.GetReqID(r.Context())
-		if reqID == "" {
-			reqID = uuid.NewString()
-		}
-		ctx := WithRequestID(r.Context(), reqID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -88,14 +78,23 @@ func Recoverer(logger *slog.Logger) func(next http.Handler) http.Handler {
 	}
 }
 
-// WithRequestID adds a request ID to the context.
-func WithRequestID(ctx context.Context, id string) context.Context {
-	return context.WithValue(ctx, requestIDKey, id)
-}
+// TelemetryEnricher — middleware to enrich OTel spans with additional common tags.
+func TelemetryEnricher(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		span := trace.SpanFromContext(r.Context())
+		if !span.IsRecording() {
+			next.ServeHTTP(w, r)
+			return
+		}
+		var attrs []attribute.KeyValue
+		if routePattern := chi.RouteContext(r.Context()).RoutePattern(); routePattern != "" {
+			attrs = append(attrs, attribute.String("http.route", routePattern))
+		}
+		if reqID := middleware.GetReqID(r.Context()); reqID != "" {
+			attrs = append(attrs, attribute.String("http.request_id", reqID))
+		}
+		span.SetAttributes(attrs...)
 
-// GetRequestID retrieves the request ID from the context.
-// Returns the request ID and a boolean indicating whether it was found.
-func GetRequestID(ctx context.Context) (string, bool) {
-	id, ok := ctx.Value(requestIDKey).(string)
-	return id, ok
+		next.ServeHTTP(w, r)
+	})
 }
