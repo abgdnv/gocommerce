@@ -14,6 +14,7 @@ import (
 	"github.com/abgdnv/gocommerce/pkg/messaging"
 	"github.com/abgdnv/gocommerce/pkg/messaging/events"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 
 	"github.com/google/uuid"
@@ -44,14 +45,21 @@ type Service struct {
 	orderStore    store.OrderStore
 	productClient pb.ProductServiceClient
 	publisher     messaging.Publisher
+	ordersCounter metric.Int64Counter
 }
 
 // NewService creates a new instance of OrderService with the provided orderStore.
 func NewService(orderStore store.OrderStore, productClient pb.ProductServiceClient, publisher messaging.Publisher) *Service {
+	meter := otel.Meter("order-service")
+	ordersCounter, err := meter.Int64Counter("orders_created", metric.WithDescription("Total number of created orders"))
+	if err != nil {
+		panic(fmt.Sprintf("failed to create orders_created counter: %v", err))
+	}
 	return &Service{
 		orderStore:    orderStore,
 		productClient: productClient,
 		publisher:     publisher,
+		ordersCounter: ordersCounter,
 	}
 }
 
@@ -191,6 +199,8 @@ func (s *Service) Create(ctx context.Context, order OrderCreateDto) (*OrderDto, 
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to publish OrderCreatedEvent", "error", err)
 	}
+	// increase the number of created orders
+	s.ordersCounter.Add(ctx, 1)
 
 	return toDto(createOrder, items), nil
 }

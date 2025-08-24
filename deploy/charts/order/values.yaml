@@ -27,6 +27,11 @@ service:
   grpcPort: 50051
   pprofPort: 6060
 
+metrics:
+  enabled: true
+  Host: ""
+  Port: 9090
+
 livenessProbe:
   httpGet:
     path: /healthz

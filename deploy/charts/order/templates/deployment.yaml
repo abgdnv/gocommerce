@@ -52,6 +52,12 @@ spec:
                   name: {{ $value.name }}
                   key: {{ $value.key }}
             {{- end }}
+            {{- if .Values.metrics.enabled }}
+            - name: ORDER_TELEMETRY_METRICS_ENABLED
+              value: "true"
+            - name: ORDER_TELEMETRY_METRICS_ADDR
+              value: "{{ .Values.metrics.Host }}:{{ .Values.metrics.Port }}"
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.httpPort }}
@@ -62,6 +68,11 @@ spec:
             - name: pprof
               containerPort: {{ .Values.service.pprofPort }}
               protocol: TCP
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.Port }}
+              protocol: TCP
+            {{- end }}
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}

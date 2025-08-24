@@ -33,5 +33,8 @@ telemetry:
       endpoint: "jaeger:4318"
       insecure: true
       timeout: "2s"
+  metrics:
+    enabled: true
+    addr: ":9090"
 shutdown:
   timeout: 5s

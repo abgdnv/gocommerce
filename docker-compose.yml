@@ -5,6 +5,10 @@ volumes:
     name: nats_data
   kc_data:
     name: kc_data
+  prom_data:
+    name: prom_data
+  grafana_data:
+    name: grafana_data
 
 networks:
   ecommerce-network:
@@ -122,9 +126,36 @@ services:
 
   jaeger:
     image: cr.jaegertracing.io/jaegertracing/jaeger:2.9.0
+    container_name: jaeger
     ports:
       - "16686:16686"     # Web UI
       - "4318:4318"       # OTLP HTTP
+    networks:
+      - ecommerce-network
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prom_data:/prometheus
+    networks:
+      - ecommerce-network
+
+  grafana:
+    image: grafana/grafana-oss
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
     networks:
       - ecommerce-network
 
@@ -210,6 +241,7 @@ services:
     ports:
       - "${ORDER_HOST_PORT}:${ORDER_SERVER_PORT}"
       - "${ORDER_PPROF_HOST_PORT}:${ORDER_PPROF_PORT}"
+      - "${ORDER_TELEMETRY_METRICS_HOST_PORT}:${ORDER_TELEMETRY_METRICS_PORT}"
     environment:
       - ORDER_DB_HOST=${ORDER_DB_HOST}
       - ORDER_DB_PORT=${ORDER_DB_PORT}
@@ -234,6 +266,8 @@ services:
       - ORDER_TELEMETRY_TRACES_OTLPHTTP_ENDPOINT=${ORDER_TELEMETRY_TRACES_OTLPHTTP_ENDPOINT}
       - ORDER_TELEMETRY_TRACES_OTLPHTTP_INSECURE=${ORDER_TELEMETRY_TRACES_OTLPHTTP_INSECURE}
       - ORDER_TELEMETRY_TRACES_OTLPHTTP_TIMEOUT=${ORDER_TELEMETRY_TRACES_OTLPHTTP_TIMEOUT}
+      - ORDER_TELEMETRY_METRICS_ENABLED=${ORDER_TELEMETRY_METRICS_ENABLED}
+      - ORDER_TELEMETRY_METRICS_ADDR=${ORDER_TELEMETRY_METRICS_ADDR}
       - ORDER_SHUTDOWN_TIMEOUT=${ORDER_SHUTDOWN_TIMEOUT}
     networks:
       - ecommerce-network

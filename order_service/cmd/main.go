@@ -17,11 +17,14 @@ import (
 	"github.com/abgdnv/gocommerce/pkg/nats"
 	"github.com/abgdnv/gocommerce/pkg/telemetry"
 	"github.com/nats-io/nats.go/jetstream"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 
 	"github.com/abgdnv/gocommerce/order_service/internal/app"
 	"github.com/abgdnv/gocommerce/order_service/internal/config"
 	pb "github.com/abgdnv/gocommerce/pkg/api/gen/go/product/v1"
+	pconfig "github.com/abgdnv/gocommerce/pkg/config"
 	"github.com/abgdnv/gocommerce/pkg/config/configloader"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
@@ -131,6 +134,29 @@ func run(ctx context.Context) error {
 		})
 	}
 
+	// Start the metrics server if enabled
+	if cfg.Telemetry.Metrics.Enabled {
+		metricsServer, err := setupMetricsServer(&cfg.Telemetry)
+		if err != nil {
+			return fmt.Errorf("failed to create metrics server")
+		}
+		g.Go(func() error {
+			logger.Info("Metrics server listening", slog.String("addr", metricsServer.Addr))
+			if err := metricsServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				return fmt.Errorf("metrics server failed: %w", err)
+			}
+			return nil
+		})
+		// gracefully shutdown metrics server on context cancellation
+		g.Go(func() error {
+			<-gCtx.Done()
+			logger.Info("Shutting down metrics server...")
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Shutdown.Timeout)
+			defer cancel()
+			return metricsServer.Shutdown(shutdownCtx)
+		})
+	}
+
 	// gracefully shutdown grpc client
 	g.Go(func() error {
 		<-gCtx.Done()
@@ -201,4 +227,21 @@ func setupServers(dbPool *pgxpool.Pool, productClient pb.ProductServiceClient, j
 		Addr: cfg.PProf.Addr,
 	}
 	return httpServer, pprofServer
+}
+
+// setupMetricsServer initializes the HTTP metrics server
+func setupMetricsServer(cfg *pconfig.TelemetryConfig) (*http.Server, error) {
+	if err := telemetry.NewMeterProvider(); err != nil {
+		return nil, err
+	}
+	metricsHandler := http.NewServeMux()
+	metricsHandler.Handle("/metrics", promhttp.HandlerFor(
+		prometheus.DefaultGatherer,
+		promhttp.HandlerOpts{},
+	))
+	metricsServer := &http.Server{
+		Addr:    cfg.Metrics.Addr,
+		Handler: metricsHandler,
+	}
+	return metricsServer, nil
 }

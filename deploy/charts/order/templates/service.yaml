@@ -21,3 +21,9 @@ spec:
     targetPort: pprof
     protocol: TCP
     name: pprof
+  {{- if .Values.metrics.enabled }}
+  - port: {{ .Values.metrics.Port }}
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  {{- end }}

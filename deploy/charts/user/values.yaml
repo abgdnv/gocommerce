@@ -62,9 +62,9 @@ env:
   USER_IDP_CLIENTID: gocommerce-api
 
   # Telemetry
-  PRODUCT_TELEMETRY_TRACES_OTLPHTTP_ENDPOINT: jaeger-instance-collector.monitoring.svc.cluster.local:4318
-  PRODUCT_TELEMETRY_TRACES_OTLPHTTP_INSECURE: true
-  PRODUCT_TELEMETRY_TRACES_OTLPHTTP_TIMEOUT: 2s
+  USER_TELEMETRY_TRACES_OTLPHTTP_ENDPOINT: jaeger-instance-collector.monitoring.svc.cluster.local:4318
+  USER_TELEMETRY_TRACES_OTLPHTTP_INSECURE: true
+  USER_TELEMETRY_TRACES_OTLPHTTP_TIMEOUT: 2s
 
   # Shutdown Configuration
   USER_SHUTDOWN_TIMEOUT: 5s

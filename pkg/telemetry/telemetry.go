@@ -6,7 +6,9 @@ import (
 	"github.com/abgdnv/gocommerce/pkg/config"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
@@ -36,4 +38,14 @@ func NewTracerProvider(ctx context.Context, serviceName string, cfg config.Telem
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	return tp, nil
+}
+
+func NewMeterProvider() error {
+	exporter, err := prometheus.New()
+	if err != nil {
+		return err
+	}
+	provider := metric.NewMeterProvider(metric.WithReader(exporter))
+	otel.SetMeterProvider(provider)
+	return nil
 }
