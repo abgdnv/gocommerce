@@ -154,7 +154,7 @@ func (s *Service) Create(ctx context.Context, order OrderCreateDto) (*OrderDto, 
 	for k := range products {
 		ids = append(ids, k)
 	}
-	slog.Info("Checking products stock", "products", ids)
+	slog.InfoContext(ctx, "Checking products stock", "products", ids)
 	productResp, err := s.productClient.GetProduct(ctx, &pb.GetProductRequest{Products: ids})
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to get product info from Product service", "error", err)

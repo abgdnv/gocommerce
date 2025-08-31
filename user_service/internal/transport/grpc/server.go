@@ -29,8 +29,7 @@ func NewServer(service UserService) *Server {
 
 // Register creates a new Keycloak user
 func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
-	logger := slog.With(slog.Any("username", req.UserName))
-	logger.Info("received grpc request Register")
+	slog.InfoContext(ctx, "received grpc request Register", slog.Any("username", req.UserName))
 	userDto := service.CreateUserDto{
 		UserName:  req.UserName,
 		FirstName: req.FirstName,
@@ -40,7 +39,7 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 	}
 	userID, err := s.service.Register(ctx, userDto)
 	if err != nil {
-		logger.Error("service.Register failed", "error", err)
+		slog.ErrorContext(ctx, "service.Register failed", "error", err)
 		if errors.Is(err, service.ErrUserAlreadyExists) {
 			return nil, status.Error(codes.AlreadyExists, err.Error())
 		}
@@ -50,6 +49,6 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 		return nil, status.Error(codes.Internal, "internal server error")
 	}
 
-	logger.Info("send grpc response", "userID", *userID)
+	slog.InfoContext(ctx, "send grpc response", "userID", *userID)
 	return &pb.RegisterResponse{Id: *userID}, nil
 }

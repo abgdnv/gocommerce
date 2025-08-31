@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/abgdnv/gocommerce/pkg/logger"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -18,8 +19,7 @@ func NewLogger(level string) *slog.Logger {
 		Level:     logLevel,
 	}
 	logHandler := slog.NewJSONHandler(os.Stdout, loggerOpts)
-	logger := slog.New(logHandler)
-	return logger
+	return slog.New(logger.NewContextHandler(logHandler))
 }
 
 // NewDbPool creates a new database connection pool with the provided context and configuration,

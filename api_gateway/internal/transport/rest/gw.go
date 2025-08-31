@@ -19,7 +19,6 @@ import (
 	"github.com/abgdnv/gocommerce/pkg/server"
 	"github.com/abgdnv/gocommerce/pkg/web"
 	"github.com/go-chi/chi/v5"
-	chimw "github.com/go-chi/chi/v5/middleware"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -124,14 +123,13 @@ func createReverseProxyWithRewrite(targetURL, fromPath, toPath string) (http.Han
 
 func (gw *GW) userRegisterHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		mLogger := gw.loggerWithReqID(r)
 		var userDto service.UserDto
 		if err := json.NewDecoder(r.Body).Decode(&userDto); err != nil {
-			mLogger.ErrorContext(r.Context(), "Error decoding request body", "error", err)
-			web.RespondError(w, mLogger, http.StatusBadRequest, "Invalid request body")
+			gw.logger.ErrorContext(r.Context(), "Error decoding request body", "error", err)
+			web.RespondError(w, gw.logger, http.StatusBadRequest, "Invalid request body")
 			return
 		}
-		mLogger.DebugContext(r.Context(), "Received request to register user", "user", userDto)
+		gw.logger.DebugContext(r.Context(), "Received request to register user", "user", userDto.UserName)
 		userID, err := gw.userService.Register(r.Context(), userDto)
 		if err != nil {
 			s, ok := status.FromError(err)
@@ -145,20 +143,14 @@ func (gw *GW) userRegisterHandler() http.HandlerFunc {
 				default:
 					httpStatus = http.StatusInternalServerError
 				}
-				web.RespondError(w, mLogger, httpStatus, s.Message())
+				web.RespondError(w, gw.logger, httpStatus, s.Message())
 				return
 			}
-			web.RespondError(w, mLogger, http.StatusInternalServerError, "User registration error")
+			web.RespondError(w, gw.logger, http.StatusInternalServerError, "User registration error")
 			return
 		}
-		web.RespondJSON(w, mLogger, http.StatusCreated, map[string]string{"id": *userID})
+		web.RespondJSON(w, gw.logger, http.StatusCreated, map[string]string{"id": *userID})
 	}
-}
-
-// loggerWithReqID creates a logger with the request ID from the context.
-func (gw *GW) loggerWithReqID(r *http.Request) *slog.Logger {
-	reqID := chimw.GetReqID(r.Context())
-	return gw.logger.With("request_id", reqID)
 }
 
 // Live checks if the service is live
@@ -182,7 +174,7 @@ func (gw *GW) Ready(w http.ResponseWriter, r *http.Request) {
 		return gw.CheckHealth(ctx, gw.JwksURL)
 	})
 	if err := eg.Wait(); err != nil {
-		slog.Error("Readiness probe failed: upstream service is not ready", "error", err)
+		slog.ErrorContext(ctx, "Readiness probe failed: upstream service is not ready", "error", err)
 		http.Error(w, "Service Unavailable: Upstream service is not ready", http.StatusServiceUnavailable)
 		return
 	}

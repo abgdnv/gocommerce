@@ -28,8 +28,7 @@ func NewServer(service ProductService) *Server {
 }
 
 func (s *Server) GetProduct(ctx context.Context, req *pb.GetProductRequest) (*pb.GetProductResponse, error) {
-	logger := slog.With(slog.Any("product_ids", req.Products))
-	logger.Info("received grpc request GetProduct")
+	slog.InfoContext(ctx, "received grpc request GetProduct", slog.Any("product_ids", req.Products))
 	ids := make([]uuid.UUID, 0, len(req.Products))
 	for _, item := range req.Products {
 		id, err := uuid.Parse(item)
@@ -41,7 +40,7 @@ func (s *Server) GetProduct(ctx context.Context, req *pb.GetProductRequest) (*pb
 
 	found, err := s.service.FindByIDs(ctx, ids)
 	if err != nil {
-		logger.Error("service.FindByIDs failed", slog.Any("error", err))
+		slog.ErrorContext(ctx, "service.FindByIDs failed", slog.Any("error", err))
 		return nil, status.Errorf(codes.Internal, "internal server error")
 	}
 	if len(found) < len(ids) {
@@ -58,7 +57,7 @@ func (s *Server) GetProduct(ctx context.Context, req *pb.GetProductRequest) (*pb
 			Version:       product.Version,
 		})
 	}
-	logger.Info("send grpc response for GetProduct")
+	slog.InfoContext(ctx, "send grpc response for GetProduct")
 	return &pb.GetProductResponse{
 		Products: products,
 	}, nil

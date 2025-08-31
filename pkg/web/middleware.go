@@ -38,12 +38,8 @@ func StructuredLogger(logger *slog.Logger) func(next http.Handler) http.Handler 
 			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			start := time.Now()
 
-			// Get request ID from context and use it to create a structured logger
-			reqID := middleware.GetReqID(r.Context())
-			requestLogger := logger.With("request_id", reqID)
-
 			defer func() {
-				requestLogger.Info("Request completed",
+				logger.InfoContext(r.Context(), "Request completed",
 					"method", r.Method,
 					"path", r.URL.Path,
 					"status", ww.Status(),

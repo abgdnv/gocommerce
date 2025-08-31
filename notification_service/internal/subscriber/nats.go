@@ -50,7 +50,7 @@ func runWorker(ctx context.Context, consumer jetstream.Consumer, batchSize int, 
 				if errors.Is(err, nats.ErrTimeout) {
 					continue
 				}
-				logger.Error("failed to fetch messages", "error", err)
+				logger.ErrorContext(ctx, "failed to fetch messages", "error", err)
 				// for other errors, we can log and retry
 				time.Sleep(interval)
 				continue
@@ -84,21 +84,21 @@ func handleMessage(msg AckableMsg, logger *slog.Logger) {
 		return
 	}
 
-	logger.Info("received order created event",
-		slog.String("order_id", event.OrderID.String()),
-		slog.String("user_id", event.UserID.String()),
-		slog.String("created_at", event.CreatedAt.Format(time.RFC3339)))
-
 	carrier := propagation.MapCarrier(event.Carrier)
 	ctx := otel.GetTextMapPropagator().Extract(context.Background(), carrier)
 	tracer := otel.Tracer("notification-service")
 	_, span := tracer.Start(ctx, "handle.order.created")
 	defer span.End()
 
+	logger.InfoContext(ctx, "received order created event",
+		slog.String("order_id", event.OrderID.String()),
+		slog.String("user_id", event.UserID.String()),
+		slog.String("created_at", event.CreatedAt.Format(time.RFC3339)))
+
 	notificationJob()
 
 	if err := msg.Ack(); err != nil {
-		logger.Error("failed to ack message", "error", err)
+		logger.ErrorContext(ctx, "failed to ack message", "error", err)
 	}
 }
 

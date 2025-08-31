@@ -35,6 +35,10 @@ type CreateUserDto struct {
 	Password  string `json:"password" validate:"required"`
 }
 
+func (u *CreateUserDto) String() string {
+	return fmt.Sprintf("UserName: %s, FirstName: %s, LastName: %s, Email: %s", u.UserName, u.FirstName, u.LastName, u.Email)
+}
+
 func NewService(gocloak GoCloakClient, realm, clientID, secret string) *UserService {
 	return &UserService{
 		gocloak:  gocloak,
@@ -47,7 +51,7 @@ func NewService(gocloak GoCloakClient, realm, clientID, secret string) *UserServ
 
 func (u *UserService) Register(ctx context.Context, userDto CreateUserDto) (*string, error) {
 	if err := u.validate.Struct(userDto); err != nil {
-		slog.Error("Failed to validate user", "error", err)
+		slog.ErrorContext(ctx, "Failed to validate user", "error", err)
 		return nil, ErrInvalidUserData
 	}
 	user := gocloak.User{
@@ -60,14 +64,14 @@ func (u *UserService) Register(ctx context.Context, userDto CreateUserDto) (*str
 
 	token, err := u.gocloak.LoginClient(ctx, u.clientID, u.secret, u.realm)
 	if err != nil {
-		slog.Error("Failed to login", "error", err)
+		slog.ErrorContext(ctx, "Failed to login", "error", err)
 		return nil, fmt.Errorf("%w: failed to login to Keycloak: %v", ErrIdPInteractionFailed, err)
 
 	}
 
 	userID, err := u.gocloak.CreateUser(ctx, token.AccessToken, u.realm, user)
 	if err != nil {
-		slog.Error("Failed to create user", "error", err)
+		slog.ErrorContext(ctx, "Failed to create user", "error", err)
 		var apiErr *gocloak.APIError
 		if errors.As(err, &apiErr) {
 			switch apiErr.Code {
@@ -82,7 +86,7 @@ func (u *UserService) Register(ctx context.Context, userDto CreateUserDto) (*str
 
 	err = u.gocloak.SetPassword(ctx, token.AccessToken, userID, u.realm, userDto.Password, false)
 	if err != nil {
-		slog.Error("Failed to set password", "error", err)
+		slog.ErrorContext(ctx, "Failed to set password", "error", err)
 		errSetPassword := fmt.Errorf("%w: failed to set password: %v", ErrIdPInteractionFailed, err)
 		_ = u.gocloak.DeleteUser(ctx, token.AccessToken, u.realm, userID)
 		return nil, errSetPassword

@@ -22,6 +22,10 @@ type UserDto struct {
 	Password  string `json:"password"`
 }
 
+func (u *UserDto) String() string {
+	return fmt.Sprintf("UserName: %s, FirstName: %s, LastName: %s, Email: %s", u.UserName, u.FirstName, u.LastName, u.Email)
+}
+
 // NewUserService creates a service for interact with User service via gRPC
 func NewUserService(userClient pb.UserServiceClient, healthClient healthpb.HealthClient) *UserService {
 	return &UserService{
