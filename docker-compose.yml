@@ -9,6 +9,8 @@ volumes:
     name: prom_data
   grafana_data:
     name: grafana_data
+  promtail-data:
+    name: promtail-data
 
 networks:
   ecommerce-network:
@@ -158,6 +160,30 @@ services:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning
     networks:
       - ecommerce-network
+
+  loki:
+    image: grafana/loki
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - ecommerce-network
+
+  promtail:
+    image: grafana/promtail
+    container_name: promtail
+    ports:
+      - "9080:9080"
+    command: -config.file=/etc/promtail/config.yaml
+    volumes:
+      - ./docker/promtail/config.yaml:/etc/promtail/config.yaml
+      - /var/run/docker.sock:/var/run/docker.sock
+      - promtail-data:/var/lib/promtail
+    networks:
+      - ecommerce-network
+    depends_on:
+      - loki
 
   product_migrator:
     image: migrate/migrate:4
