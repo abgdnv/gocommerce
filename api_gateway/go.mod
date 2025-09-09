@@ -1,6 +1,6 @@
 module github.com/abgdnv/gocommerce/api_gateway
 
-go 1.24.4
+go 1.25.1
 
 replace github.com/abgdnv/gocommerce/pkg => ../pkg
 

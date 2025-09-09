@@ -1,6 +1,6 @@
 module github.com/abgdnv/gocommerce/notification_service
 
-go 1.24.4
+go 1.25.1
 
 replace github.com/abgdnv/gocommerce/pkg => ../pkg
 
