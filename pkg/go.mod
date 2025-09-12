@@ -5,6 +5,7 @@ go 1.25.1
 require (
 	github.com/go-chi/chi/v5 v5.2.2
 	github.com/google/uuid v1.6.0
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.2
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/joho/godotenv v1.5.1
 	github.com/knadh/koanf/parsers/yaml v1.1.0
@@ -14,6 +15,7 @@ require (
 	github.com/knadh/koanf/v2 v2.2.2
 	github.com/lestrrat-go/jwx/v3 v3.0.8
 	github.com/nats-io/nats.go v1.43.0
+	github.com/sony/gobreaker/v2 v2.2.0
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.62.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.62.0
