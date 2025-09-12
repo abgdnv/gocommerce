@@ -61,7 +61,7 @@ testv: ## Run tests in all modules with verbose output
 	done
 
 .PHONY: tidy
-tidy: ## Run tests in all modules with verbose output
+tidy: ## Run go mod tidy in all modules
 	@echo "Tidying all Go modules..."
 	@for dir in $(MODULES); do \
 		echo "==> Tidying module in $$dir"; \
