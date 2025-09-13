@@ -36,5 +36,13 @@ telemetry:
   metrics:
     enabled: true
     addr: ":9090"
+resilience:
+  retry:
+    maxattempts: 3
+    initialbackoff: "100ms"
+  circuitbreaker:
+    consecutivefailures: 5
+    errorratepercent: 60
+    opentimeout: "5s"
 shutdown:
   timeout: 5s

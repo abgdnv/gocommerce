@@ -10,13 +10,14 @@ import (
 var _ configloader.Validator = (*Config)(nil)
 
 type Config struct {
-	HTTPServer config.HTTPConfig      `koanf:"server"`
-	Database   config.DatabaseConfig  `koanf:"db"`
-	Log        config.LogConfig       `koanf:"log"`
-	PProf      config.PProfConfig     `koanf:"pprof"`
-	Nats       config.NATSConfig      `koanf:"nats"`
-	Telemetry  config.TelemetryConfig `koanf:"telemetry"`
-	Shutdown   config.ShutdownConfig  `koanf:"shutdown"`
+	HTTPServer config.HTTPConfig       `koanf:"server"`
+	Database   config.DatabaseConfig   `koanf:"db"`
+	Log        config.LogConfig        `koanf:"log"`
+	PProf      config.PProfConfig      `koanf:"pprof"`
+	Nats       config.NATSConfig       `koanf:"nats"`
+	Telemetry  config.TelemetryConfig  `koanf:"telemetry"`
+	Resilience config.ResilienceConfig `koanf:"resilience"`
+	Shutdown   config.ShutdownConfig   `koanf:"shutdown"`
 	Services   struct {
 		Product struct {
 			Grpc config.GrpcClientConfig `koanf:"grpc"`
@@ -32,6 +33,7 @@ func (c *Config) String() string {
 	b.WriteString(c.Services.Product.Grpc.String())
 	b.WriteString(c.Nats.String())
 	b.WriteString(c.Telemetry.String())
+	b.WriteString(c.Resilience.String())
 	b.WriteString(c.Log.String())
 	b.WriteString(c.PProf.String())
 	b.WriteString(c.Shutdown.String())
@@ -57,6 +59,9 @@ func (c *Config) Validate() error {
 		return err
 	}
 	if err := c.Telemetry.Validate(); err != nil {
+		return err
+	}
+	if err := c.Resilience.Validate(); err != nil {
 		return err
 	}
 	if err := c.Shutdown.Validate(); err != nil {

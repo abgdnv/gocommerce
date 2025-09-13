@@ -74,7 +74,9 @@ func run(ctx context.Context) error {
 	grpcClient, err := grpc.NewClient(
 		cfg.Services.Product.Grpc.Addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(
+		grpc.WithChainUnaryInterceptor(
+			interceptors.NewRetryInterceptor(cfg.Resilience.Retry),
+			interceptors.NewCircuitBreaker(cfg.Resilience.CircuitBreaker),
 			interceptors.UnaryClientTimeoutInterceptor(cfg.Services.Product.Grpc.Timeout),
 		),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
